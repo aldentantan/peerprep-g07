@@ -20,6 +20,8 @@ services:
       - ADMIN_PASSWORD=admin123
     depends_on:
       - postgres
+    networks:
+      - peerprep-network
 
   postgres:
     image: postgres:16-alpine
@@ -29,10 +31,16 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: userdb
     ports:
-      - "5432:5432"
+      - "3010:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
       - ./src/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - peerprep-network
 
 volumes:
   postgres-data:
+
+networks:
+  peerprep-network:
+    name: peerprep-network
