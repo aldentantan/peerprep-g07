@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "3011:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./src/db/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -16,12 +16,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - peerprep-network
 
   question-service:
     build: .
     container_name: peerprep-question-service
     ports:
-      - "3000:3000"
+      - "3001:3001"
     env_file:
       - .env
     environment:
@@ -34,6 +36,12 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - peerprep-network
 
 volumes:
   postgres_data:
+
+networks:
+  peerprep-network:
+    name: peerprep-network

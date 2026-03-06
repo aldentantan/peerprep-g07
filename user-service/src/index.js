@@ -57,6 +57,7 @@ const PORT = process.env.PORT || 3000;
 
 async function initializeRootAdmin() {
 	try {
+		await new Promise((resolve) => setTimeout(resolve, 10000));
 		const { ADMIN_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD } = process.env;
 		if (!ADMIN_EMAIL || !ADMIN_USERNAME || !ADMIN_PASSWORD) {
 			console.log('Admin credentials not fully set in environment variables. Skipping root admin initialization.');

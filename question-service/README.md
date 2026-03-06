@@ -27,6 +27,8 @@ question-service/
     ├── db/
     │   ├── index.js            # pg Pool connection
     │   └── init.sql            # Schema creation + seed data (20 questions)
+    ├── middleware/
+    │   └── auth.js             # requireAdmin – calls User Service to verify role
     ├── controllers/
     │   └── questionController.js  # All business logic
     └── routes/
