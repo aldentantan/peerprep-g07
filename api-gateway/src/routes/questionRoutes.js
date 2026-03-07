@@ -39,7 +39,11 @@ router.get('/:id', async (req, res) => {
 // POST /api/questions → question-service POST /questions (admin only)
 router.post('/', verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const response = await axios.post(`${QUESTION_SERVICE_URL}/questions`, req.body);
+    const response = await axios.post(
+      `${QUESTION_SERVICE_URL}/questions`,
+      req.body,
+      { headers: { authorization: `Bearer ${req.token}` } },
+    );
     return res.status(response.status).json(response.data);
   } catch (error) {
     if (error.response) {
@@ -52,7 +56,11 @@ router.post('/', verifyToken, verifyAdmin, async (req, res) => {
 // PUT /api/questions/:id → question-service PUT /questions/:id (admin only)
 router.put('/:id', verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const response = await axios.put(`${QUESTION_SERVICE_URL}/questions/${req.params.id}`, req.body);
+    const response = await axios.put(
+      `${QUESTION_SERVICE_URL}/questions/${req.params.id}`,
+      req.body,
+      { headers: { authorization: `Bearer ${req.token}` } },
+    );
     return res.status(response.status).json(response.data);
   } catch (error) {
     if (error.response) {
@@ -65,7 +73,10 @@ router.put('/:id', verifyToken, verifyAdmin, async (req, res) => {
 // DELETE /api/questions/:id → question-service DELETE /questions/:id (admin only)
 router.delete('/:id', verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const response = await axios.delete(`${QUESTION_SERVICE_URL}/questions/${req.params.id}`);
+    const response = await axios.delete(
+      `${QUESTION_SERVICE_URL}/questions/${req.params.id}`,
+      { headers: { authorization: `Bearer ${req.token}` } },
+    );
     return res.status(response.status).json(response.data);
   } catch (error) {
     if (error.response) {
