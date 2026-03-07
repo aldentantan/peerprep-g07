@@ -3,16 +3,56 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Badge } from "@/app/components/ui/badge";
 import { User, Mail, Award, Code, Save, Shield, Lock, Crown, Trash2, AlertTriangle } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getProfile, updateProfile } from "@/app/services/authService";
 
 export function UserProfileScreen() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const profile = await getProfile();
+        setUsername(profile.username);
+        setEmail(profile.email);
+        setRole(profile.access_role || "user");
+      } catch (err: any) {
+        setError("Failed to load profile");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveMessage("");
+    try {
+      await updateProfile(username);
+      setSaveMessage("Profile updated successfully!");
+    } catch (err: any) {
+      setSaveMessage(err.response?.data?.error || "Failed to update profile");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleDeleteAccount = () => {
-    // Here you would typically call an API to delete the account
     alert("Account deletion requested. In a real app, this would delete your account.");
     setShowDeleteConfirm(false);
   };
+
+  if (isLoading) {
+    return <div className="text-center py-12 text-gray-500">Loading profile...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -30,7 +70,6 @@ export function UserProfileScreen() {
             </div>
             
             <div>
-              <p className="text-sm text-gray-500 uppercase tracking-wide">Avatar Placeholder</p>
               <Button variant="outline" className="mt-2 border-2 border-gray-300">
                 Upload Photo
               </Button>
@@ -40,38 +79,54 @@ export function UserProfileScreen() {
           {/* Role Badge */}
           <div className="pt-4 border-t-2 border-gray-200">
             <div className="mt-2 space-y-2">
-              <Badge className="bg-blue-100 text-blue-800 border border-blue-300">
-                Standard User
-              </Badge>
-              <div className="text-xs text-gray-600 mt-2">
-                <p className="font-semibold mb-1">Permissions:</p>
-                <ul className="list-disc list-inside space-y-1 text-[11px]">
-                  <li>View questions</li>
-                  <li>Join matching queue</li>
-                  <li>Collaborate in sessions</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Admin Role Example */}
-          <div className="pt-4 border-t-2 border-gray-200">
-            <Label className="text-gray-700 text-sm flex items-center gap-2">
-              <Crown className="h-3 w-3" />
-              Admin (To Unlock)
-            </Label>
-            <div className="mt-2 space-y-2">
-              <Badge className="bg-purple-100 text-purple-800 border border-purple-300">
-                Admin
-              </Badge>
-              <div className="text-xs text-gray-600 mt-2">
-                <p className="font-semibold mb-1">Additional Access:</p>
-                <ul className="list-disc list-inside space-y-1 text-[11px]">
-                  <li>Create/edit/delete questions</li>
-                  <li>Manage user accounts</li>
-                  <li>View system analytics</li>
-                </ul>
-              </div>
+              {role === "root-admin" && (
+                <>
+                  <Badge className="bg-red-100 text-red-800 border border-red-300">
+                    <Crown className="w-3 h-3 mr-1" />
+                    Root Admin
+                  </Badge>
+                  <div className="text-xs text-gray-600 mt-2">
+                    <p className="font-semibold mb-1">Permissions:</p>
+                    <ul className="list-disc list-inside space-y-1 text-[11px]">
+                      <li>All admin permissions</li>
+                      <li>Promote/demote users</li>
+                      <li>Manage all accounts</li>
+                    </ul>
+                  </div>
+                </>
+              )}
+              {role === "admin" && (
+                <>
+                  <Badge className="bg-purple-100 text-purple-800 border border-purple-300">
+                    <Shield className="w-3 h-3 mr-1" />
+                    Admin
+                  </Badge>
+                  <div className="text-xs text-gray-600 mt-2">
+                    <p className="font-semibold mb-1">Permissions:</p>
+                    <ul className="list-disc list-inside space-y-1 text-[11px]">
+                      <li>Create/edit/delete questions</li>
+                      <li>View questions</li>
+                      <li>Join matching queue</li>
+                      <li>Collaborate in sessions</li>
+                    </ul>
+                  </div>
+                </>
+              )}
+              {role === "user" && (
+                <>
+                  <Badge className="bg-blue-100 text-blue-800 border border-blue-300">
+                    Standard User
+                  </Badge>
+                  <div className="text-xs text-gray-600 mt-2">
+                    <p className="font-semibold mb-1">Permissions:</p>
+                    <ul className="list-disc list-inside space-y-1 text-[11px]">
+                      <li>View questions</li>
+                      <li>Join matching queue</li>
+                      <li>Collaborate in sessions</li>
+                    </ul>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -125,7 +180,8 @@ export function UserProfileScreen() {
               <Label htmlFor="username" className="text-gray-700">Username</Label>
               <Input 
                 id="username" 
-                defaultValue="john_doe"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="border-2 border-gray-300"
               />
             </div>
@@ -137,8 +193,9 @@ export function UserProfileScreen() {
                 <Input 
                   id="email" 
                   type="email"
-                  defaultValue="john@example.com"
-                  className="pl-10 border-2 border-gray-300"
+                  value={email}
+                  disabled
+                  className="pl-10 border-2 border-gray-300 bg-gray-50"
                 />
               </div>
             </div>
@@ -193,13 +250,19 @@ export function UserProfileScreen() {
             </div>
           </div>
 
+          {saveMessage && (
+            <p className={`text-sm ${saveMessage.includes('success') ? 'text-green-600' : 'text-red-600'}`}>
+              {saveMessage}
+            </p>
+          )}
+
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" className="border-2 border-gray-300">
               Cancel
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSave} disabled={isSaving}>
               <Save className="mr-2 h-4 w-4" />
-              Save Changes
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </div>

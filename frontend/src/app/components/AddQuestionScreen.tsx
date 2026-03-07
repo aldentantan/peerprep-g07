@@ -14,6 +14,7 @@ import {
   Trash2
 } from "lucide-react";
 import { useState } from "react";
+import { createQuestion } from "@/app/services/questionService";
 
 interface AddQuestionScreenProps {
   onBack: () => void;
@@ -26,7 +27,10 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
   const [description, setDescription] = useState("");
   const [difficulty, setDifficulty] = useState("Medium");
   const [topic, setTopic] = useState("Arrays");
+  const [leetcodeLink, setLeetcodeLink] = useState("");
   const [imageUploaded, setImageUploaded] = useState(false);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [testCases, setTestCases] = useState([
     { input: "", expectedOutput: "" }
   ]);
@@ -63,12 +67,29 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
     setTestCases(updated);
   };
 
-  const handleSave = () => {
-    // Here you would typically save to backend
-    if (onSave) {
-      onSave();
+  const handleSave = async () => {
+    setError("");
+    if (!title || !description) {
+      setError("Title and description are required");
+      return;
     }
-    onBack();
+    setIsLoading(true);
+    try {
+      await createQuestion({
+        title,
+        description,
+        difficulty,
+        topics: [topic],
+        testCases: testCases.map((tc) => ({ input: tc.input, output: tc.expectedOutput })),
+        leetcodeLink: leetcodeLink || undefined,
+      });
+      if (onSave) onSave();
+      onBack();
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.response?.data?.message || "Failed to create question");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getDifficultyColor = (diff: string) => {
@@ -200,6 +221,20 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
                   ))}
                 </select>
               </div>
+
+              {/* LeetCode Link */}
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="leetcodeLink" className="text-gray-700 font-medium">
+                  LeetCode Link
+                </Label>
+                <Input
+                  id="leetcodeLink"
+                  placeholder="https://leetcode.com/problems/..."
+                  value={leetcodeLink}
+                  onChange={(e) => setLeetcodeLink(e.target.value)}
+                  className="h-11 border-2 border-gray-300"
+                />
+              </div>
             </div>
           </div>
 
@@ -328,6 +363,11 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
       </div>
 
       {/* Action Buttons */}
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <div className="flex justify-end gap-3 pt-4">
         <Button
           variant="outline"
@@ -339,10 +379,11 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
         </Button>
         <Button
           onClick={handleSave}
+          disabled={isLoading}
           className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6"
         >
           <Save className="mr-2 h-4 w-4" />
-          Save Question
+          {isLoading ? "Saving..." : "Save Question"}
         </Button>
       </div>
 

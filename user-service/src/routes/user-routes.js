@@ -4,6 +4,7 @@ import { createUser,
     updateUser,
     getUserByEmail,
     updateUserRoleByEmail,
+    getAllUsers,
  } from '../controllers/user-controller.js';
 import { verifyAccessToken, verifyIsRootAdmin } from '../middleware/access-control.js';
 
@@ -14,6 +15,8 @@ router.post('/', createUser);
 router.get('/me', verifyAccessToken, getUserBySelf);
 
 router.patch('/me', verifyAccessToken, updateUser);
+
+router.get("/all", verifyAccessToken, verifyIsRootAdmin, getAllUsers);
 
 router.get("/by-email/:email", verifyAccessToken, verifyIsRootAdmin, getUserByEmail);
 

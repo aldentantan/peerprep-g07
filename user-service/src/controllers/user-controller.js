@@ -1,7 +1,9 @@
 import { 
     createUser as _createUser, 
     getUserByEmail as _getUserByEmail,
-    updateUser as _updateUser
+    updateUser as _updateUser,
+    updateUserRoleByEmail as _updateUserRoleByEmail,
+    getAllUsers as _getAllUsers
 } from '../database/query.js';
 import bcrypt from 'bcrypt';
 
@@ -101,7 +103,7 @@ export async function updateUserRoleByEmail(req, res) {
         if (!role || !email) {
             return res.status(400).json({ error: 'email and role are required' });
         }
-        const validRoles = ['user', 'admin', 'root_admin'];
+        const validRoles = ['user', 'admin', 'root-admin'];
         if (!validRoles.includes(role)) {
             return res.status(400).json({ error: 'invalid role' });
         }
@@ -110,6 +112,16 @@ export async function updateUserRoleByEmail(req, res) {
     } catch (error) {
         console.error('Error updating user role:', error);
         return res.status(500).json({ error: 'Failed to update user role' });
+    }
+}
+
+export async function getAllUsers(req, res) {
+    try {
+        const users = await _getAllUsers();
+        return res.status(200).json(users);
+    } catch (error) {
+        console.error('Error retrieving users:', error);
+        return res.status(500).json({ error: 'Failed to retrieve users' });
     }
 }
 

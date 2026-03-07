@@ -108,9 +108,7 @@ export function CollaborationWorkspace({ onLeaveSession }: CollaborationWorkspac
             ))}
           </div>
 
-          <div className="pt-3 border-t-2 border-gray-200">
-            <p className="text-xs text-gray-600 text-center">Real-time sync enabled</p>
-          </div>
+          {/* ...existing code... */}
         </div>
 
         {/* Code Editor Area */}
@@ -180,9 +178,7 @@ export function CollaborationWorkspace({ onLeaveSession }: CollaborationWorkspac
             <div className="text-green-400">Ready to run...</div>
           </div>
 
-          <div className="text-xs text-gray-600 text-center pt-2 border-t-2 border-gray-200">
-            Real-time concurrent code editing enabled
-          </div>
+          {/* ...existing code... */}
         </div>
 
         {/* Chat / Comments Panel */}

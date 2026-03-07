@@ -18,7 +18,8 @@ import {
   Shield,
   User
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getQuestions, deleteQuestion, type Question } from "@/app/services/questionService";
 
 interface QuestionLibraryProps {
   onStartSession?: () => void;
@@ -27,63 +28,53 @@ interface QuestionLibraryProps {
 
 export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: QuestionLibraryProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [topicFilter, setTopicFilter] = useState("");
+  const [difficultyFilter, setDifficultyFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const mockQuestions = [
-    {
-      id: "Q001",
-      title: "Two Sum",
-      difficulty: "Easy",
-      topic: "Arrays",
-      popularity: 95,
-      hasImage: true,
-      description: "Given an array of integers, return indices of two numbers that add up to target."
-    },
-    {
-      id: "Q002",
-      title: "Binary Tree Traversal",
-      difficulty: "Medium",
-      topic: "Trees",
-      popularity: 88,
-      hasImage: true,
-      description: "Implement inorder, preorder, and postorder traversal of a binary tree."
-    },
-    {
-      id: "Q003",
-      title: "Dynamic Programming - Knapsack",
-      difficulty: "Hard",
-      topic: "Dynamic Programming",
-      popularity: 76,
-      hasImage: true,
-      description: "Solve the 0/1 knapsack problem using dynamic programming approach."
-    },
-    {
-      id: "Q004",
-      title: "Linked List Cycle",
-      difficulty: "Medium",
-      topic: "Linked Lists",
-      popularity: 92,
-      hasImage: true,
-      description: "Detect if a linked list has a cycle using Floyd's algorithm."
-    },
-    {
-      id: "Q005",
-      title: "Merge Sort Implementation",
-      difficulty: "Medium",
-      topic: "Sorting",
-      popularity: 85,
-      hasImage: true,
-      description: "Implement merge sort algorithm with O(n log n) time complexity."
-    },
-    {
-      id: "Q006",
-      title: "Graph BFS/DFS",
-      difficulty: "Hard",
-      topic: "Graphs",
-      popularity: 81,
-      hasImage: true,
-      description: "Implement breadth-first and depth-first search for graph traversal."
-    },
-  ];
+  const fetchQuestions = async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const filters: { topics?: string[]; difficulty?: string } = {};
+      if (topicFilter) {
+        filters.topics = [topicFilter];
+      }
+      if (difficultyFilter) {
+        filters.difficulty = difficultyFilter;
+      }
+      const data = await getQuestions(filters);
+      setQuestions(data.questions);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to load questions");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchQuestions();
+  }, [topicFilter, difficultyFilter]);
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteQuestion(id);
+      fetchQuestions();
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to delete question");
+    }
+  };
+
+  const filteredQuestions = searchQuery
+    ? questions.filter(
+        (q) =>
+          q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          q.topics.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    : questions;
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -133,6 +124,8 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
                 id="search"
                 placeholder="Search by title or topic..."
                 className="pl-10 border-2 border-gray-300"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
@@ -143,8 +136,10 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
             <select 
               id="topic-filter"
               className="w-full h-10 px-3 border-2 border-gray-300 rounded-md bg-white"
+              value={topicFilter}
+              onChange={(e) => setTopicFilter(e.target.value)}
             >
-              <option>All Topics</option>
+              <option value="">All Topics</option>
               <option>Arrays</option>
               <option>Trees</option>
               <option>Graphs</option>
@@ -159,8 +154,10 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
             <select 
               id="difficulty-filter"
               className="w-full h-10 px-3 border-2 border-gray-300 rounded-md bg-white"
+              value={difficultyFilter}
+              onChange={(e) => setDifficultyFilter(e.target.value)}
             >
-              <option>All Levels</option>
+              <option value="">All Levels</option>
               <option>Easy</option>
               <option>Medium</option>
               <option>Hard</option>
@@ -210,11 +207,15 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
       </div>
 
       {/* Questions Display */}
-      {viewMode === "grid" ? (
+      {isLoading ? (
+        <div className="text-center py-12 text-gray-500">Loading questions...</div>
+      ) : error ? (
+        <div className="text-center py-12 text-red-600">{error}</div>
+      ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {mockQuestions.map((question) => (
+          {filteredQuestions.map((question) => (
             <div 
-              key={question.id}
+              key={question.questionId}
               className="border-4 border-gray-300 rounded-lg p-5 bg-white hover:border-blue-400 transition-colors cursor-pointer group"
             >
               <div className="space-y-3">
@@ -223,12 +224,12 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <Badge variant="outline" className="text-xs font-mono border-gray-400 text-gray-600">
-                        {question.id}
+                        Q{String(question.questionId).padStart(3, '0')}
                       </Badge>
                     </div>
                     <h3 className="font-semibold text-gray-900">{question.title}</h3>
                   </div>
-                  {question.hasImage && (
+                  {question.imageUrls && question.imageUrls.length > 0 && (
                     <div className="flex-shrink-0 p-1 border-2 border-gray-300 rounded">
                       <ImageIcon className="h-4 w-4 text-gray-400" />
                     </div>
@@ -240,19 +241,24 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
                   <Badge className={`border ${getDifficultyColor(question.difficulty)}`}>
                     {question.difficulty}
                   </Badge>
-                  <Badge variant="secondary" className="border border-gray-300">
-                    {question.topic}
-                  </Badge>
+                  {question.topics.map((t) => (
+                    <Badge key={t} variant="secondary" className="border border-gray-300">
+                      {t}
+                    </Badge>
+                  ))}
                 </div>
 
                 {/* Description */}
                 <p className="text-sm text-gray-600 line-clamp-2">{question.description}</p>
 
-                {/* Popularity */}
-                <div className="flex items-center gap-2 text-xs text-gray-600">
-                  <TrendingUp className="h-3 w-3" />
-                  <span>Popularity: {question.popularity}%</span>
-                </div>
+                {/* Leetcode Link */}
+                {question.leetcodeLink && (
+                  <div className="flex items-center gap-2 text-xs text-blue-600">
+                    <a href={question.leetcodeLink} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                      LeetCode Link
+                    </a>
+                  </div>
+                )}
 
                 {/* Admin Action Buttons */}
                 <div className="flex gap-2">
@@ -267,6 +273,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
                   <Button 
                     variant="outline" 
                     size="sm"
+                    onClick={() => handleDelete(question.questionId)}
                     className="flex-1 border-2 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400"
                   >
                     <Trash2 className="mr-1 h-3 w-3" />
@@ -279,15 +286,15 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
         </div>
       ) : (
         <div className="space-y-3">
-          {mockQuestions.map((question) => (
+          {filteredQuestions.map((question) => (
             <div 
-              key={question.id}
+              key={question.questionId}
               className="border-4 border-gray-300 rounded-lg p-5 bg-white hover:border-blue-400 transition-colors cursor-pointer group"
             >
               <div className="flex items-center gap-4">
                 {/* Image Indicator */}
                 <div className="w-16 h-16 border-2 border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 flex-shrink-0">
-                  {question.hasImage ? (
+                  {question.imageUrls && question.imageUrls.length > 0 ? (
                     <ImageIcon className="h-8 w-8 text-gray-400" />
                   ) : (
                     <BookOpen className="h-8 w-8 text-gray-400" />
@@ -298,7 +305,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant="outline" className="text-xs font-mono border-gray-400 text-gray-600">
-                      {question.id}
+                      Q{String(question.questionId).padStart(3, '0')}
                     </Badge>
                     <h3 className="font-semibold text-gray-900">{question.title}</h3>
                   </div>
@@ -307,13 +314,11 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
                     <Badge className={`border text-xs ${getDifficultyColor(question.difficulty)}`}>
                       {question.difficulty}
                     </Badge>
-                    <Badge variant="secondary" className="border border-gray-300 text-xs">
-                      {question.topic}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      <TrendingUp className="h-3 w-3 mr-1" />
-                      {question.popularity}%
-                    </Badge>
+                    {question.topics.map((t) => (
+                      <Badge key={t} variant="secondary" className="border border-gray-300 text-xs">
+                        {t}
+                      </Badge>
+                    ))}
                   </div>
                 </div>
 
@@ -330,6 +335,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
                   <Button 
                     variant="outline"
                     size="sm"
+                    onClick={() => handleDelete(question.questionId)}
                     className="border-2 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400"
                   >
                     <Trash2 className="mr-1 h-4 w-4" />
@@ -342,16 +348,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
         </div>
       )}
 
-      {/* Admin Info Note */}
-      <div className="p-4 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50 text-center">
-        <div className="text-sm text-purple-800">
-          <p className="font-semibold mb-1 flex items-center justify-center gap-2">
-            <Shield className="w-4 h-4" />
-            Admin Management View
-          </p>
-          <p>This page is accessible only to administrators. Add, edit, or remove coding questions from the library.</p>
-        </div>
-      </div>
+      {/* ...existing code... */}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { 
@@ -9,7 +9,8 @@ import {
   Menu,
   Home,
   ArrowRight,
-  X
+  X,
+  Shield
 } from "lucide-react";
 import { LoginScreen } from "@/app/components/LoginScreen";
 import { SignupScreen } from "@/app/components/SignupScreen";
@@ -20,21 +21,40 @@ import { QuestionLibrary } from "@/app/components/QuestionLibrary";
 import { AddQuestionScreen } from "@/app/components/AddQuestionScreen";
 import { CollaborationWorkspace } from "@/app/components/CollaborationWorkspace";
 import { SoloWorkspace } from "@/app/components/SoloWorkspace";
+import { AdminPanel } from "@/app/components/AdminPanel";
+import { isAuthenticated, logout, getProfile } from "@/app/services/authService";
 
-type Screen = "login" | "signup" | "forgotPassword" | "profile" | "matching" | "questions" | "addQuestion" | "collaboration" | "solo";
+type Screen = "login" | "signup" | "forgotPassword" | "profile" | "matching" | "questions" | "addQuestion" | "collaboration" | "solo" | "admin";
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string>("user");
+
+  // Check auth state on mount
+  useEffect(() => {
+    if (isAuthenticated()) {
+      setIsLoggedIn(true);
+      setCurrentScreen("matching");
+      getProfile().then(profile => {
+        setUserRole(profile.access_role || "user");
+      }).catch(() => {});
+    }
+  }, []);
 
   const handleLogin = () => {
     setIsLoggedIn(true);
     setCurrentScreen("matching");
+    getProfile().then(profile => {
+      setUserRole(profile.access_role || "user");
+    }).catch(() => {});
   };
 
   const handleLogout = () => {
+    logout();
     setIsLoggedIn(false);
+    setUserRole("user");
     setCurrentScreen("login");
   };
 
@@ -51,9 +71,10 @@ export default function App() {
 
   const navigationItems = [
     { id: "matching" as Screen, label: "Match Dashboard", icon: Users },
-    { id: "questions" as Screen, label: "Question Library", icon: BookOpen },
+    ...(userRole === "admin" || userRole === "root-admin" ? [{ id: "questions" as Screen, label: "Question Library", icon: BookOpen }] : []),
     { id: "collaboration" as Screen, label: "Collaboration", icon: Code2 },
     { id: "profile" as Screen, label: "Profile", icon: User },
+    ...(userRole === "root-admin" ? [{ id: "admin" as Screen, label: "User Management", icon: Shield }] : []),
   ];
 
   return (
@@ -147,10 +168,11 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {currentScreen === "profile" && <UserProfileScreen />}
         {currentScreen === "matching" && <MatchingDashboard onNavigateToCollaboration={() => setCurrentScreen("collaboration")} />}
-        {currentScreen === "questions" && <QuestionLibrary onStartSession={() => setCurrentScreen("solo")} onNavigateToAddQuestion={() => setCurrentScreen("addQuestion")} />}
-        {currentScreen === "addQuestion" && <AddQuestionScreen onBack={() => setCurrentScreen("questions")} />}
+        {currentScreen === "questions" && (userRole === "admin" || userRole === "root-admin") && <QuestionLibrary onStartSession={() => setCurrentScreen("solo")} onNavigateToAddQuestion={() => setCurrentScreen("addQuestion")} />}
+        {currentScreen === "addQuestion" && (userRole === "admin" || userRole === "root-admin") && <AddQuestionScreen onBack={() => setCurrentScreen("questions")} />}
         {currentScreen === "collaboration" && <CollaborationWorkspace onLeaveSession={() => setCurrentScreen("matching")} />}
         {currentScreen === "solo" && <SoloWorkspace onBackToLibrary={() => setCurrentScreen("questions")} />}
+        {currentScreen === "admin" && userRole === "root-admin" && <AdminPanel />}
       </main>
     </div>
   );

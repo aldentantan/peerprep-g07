@@ -43,3 +43,11 @@ export async function updateUserRoleByEmail(email, role) {
     );
     return result.rows[0];
 }
+
+export async function getAllUsers() {
+    const result = await query(
+        'SELECT id, email, username, access_role, created_at FROM users ORDER BY created_at DESC',
+        [],
+    );
+    return result.rows;
+}

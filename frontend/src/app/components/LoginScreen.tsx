@@ -3,6 +3,8 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Users, Code2, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { login } from "@/app/services/authService";
 
 interface LoginScreenProps {
   onNavigateToSignup: () => void;
@@ -15,6 +17,32 @@ export function LoginScreen({
   onNavigateToDashboard,
   onNavigateToForgotPassword,
 }: LoginScreenProps) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSignIn = async () => {
+    setError("");
+    if (!email || !password) {
+      setError("Email and password are required");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await login({ email, password });
+      onNavigateToDashboard();
+    } catch (err: any) {
+      const msg = err.response?.data?.error;
+      if (err.response?.status === 401) {
+        setError("Invalid email or password. Please try again.");
+      } else {
+        setError(msg || "Login failed. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-50">
       {/* Left Side - Marketing Content */}
@@ -46,6 +74,7 @@ export function LoginScreen({
 
         {/* Features */}
         <div className="space-y-6 max-w-xl">
+
           {/* Real-Time Matching */}
           <div className="flex gap-4">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -61,7 +90,7 @@ export function LoginScreen({
                   difficulty level
                 </span>{" "}
                 and{" "}
-                <span className="text-indigo-600">topics</span>{" "}
+                <span className="text-indigo-600">shared topic</span>{" "}
                 you want to practice
               </p>
             </div>
@@ -77,11 +106,7 @@ export function LoginScreen({
                 Collaborative Coding
               </h3>
               <p className="text-gray-600 text-sm">
-                Work together in a shared{" "}
-                <span className="text-indigo-600">
-                  coding environment
-                </span>{" "}
-                to solve problems in real-time
+                Work together in a <span className="text-indigo-600"> shared </span> coding environment to solve problems in real-time
               </p>
             </div>
           </div>
@@ -112,13 +137,14 @@ export function LoginScreen({
           {/* Form Header */}
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Welcome back
+              Welcome Back
             </h2>
             <p className="text-gray-600 text-sm">
               Enter your credentials to access your account
             </p>
           </div>
 
+          <form onSubmit={(e) => { e.preventDefault(); handleSignIn(); }}>
           {/* Email Field */}
           <div className="space-y-2 mb-4">
             <Label
@@ -132,6 +158,8 @@ export function LoginScreen({
               type="email"
               placeholder="you@example.com"
               className="h-11 border-gray-300"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
 
@@ -148,6 +176,8 @@ export function LoginScreen({
               type="password"
               placeholder="••••••••"
               className="h-11 border-gray-300"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
@@ -163,6 +193,7 @@ export function LoginScreen({
               </label>
             </div>
             <button
+              type="button"
               onClick={onNavigateToForgotPassword}
               className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
             >
@@ -170,13 +201,22 @@ export function LoginScreen({
             </button>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
           {/* Sign In Button */}
           <Button
-            onClick={onNavigateToDashboard}
+            type="submit"
+            disabled={isLoading}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-11 text-base font-semibold mb-6"
           >
-            Sign In
+            {isLoading ? "Signing in..." : "Sign In"}
           </Button>
+          </form>
 
           {/* Sign Up Link */}
           <div className="text-center text-sm text-gray-600">

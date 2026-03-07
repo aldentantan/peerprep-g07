@@ -128,16 +128,6 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
       </div>
 
       <div className="max-w-4xl mx-auto">
-        {/* Matching Criteria Info Banner */}
-        <div className="mb-4 p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
-          <div className="flex items-start gap-2 text-sm text-purple-800">
-            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold mb-1">Matching Algorithm:</p>
-              <p className="text-xs">Priority: Topic (highest) → Difficulty. The system matches users with identical topic preferences first.</p>
-            </div>
-          </div>
-        </div>
 
         {/* Selection Panel - Only show when idle */}
         {matchingState === "idle" && (
@@ -147,7 +137,7 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
                 Select Your Preferences
               </h2>
               <p className="text-gray-600">
-                Choose a difficulty level and topic to get matched with another user
+                Choose a difficulty level, topic and language to get matched with another user
               </p>
             </div>
 
