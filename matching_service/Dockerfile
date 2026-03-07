@@ -13,7 +13,7 @@ COPY . .
 RUN npm run build
 
 # Set port env variable of the docker container and expose it
-ENV PORT=3000
-EXPOSE 3000
+ENV PORT=3002
+EXPOSE 3002
 
 CMD ["npm", "start"]
