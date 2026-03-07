@@ -1,0 +1,14 @@
+services:
+  frontend:
+    build: .
+    image: frontend
+    container_name: frontend
+    ports:
+      - "3038:3038"
+    networks:
+      - peerprep-network
+
+networks:
+  peerprep-network:
+    name: peerprep-network
+    external: true
