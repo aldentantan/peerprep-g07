@@ -188,22 +188,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion }: Que
           </div>
         </div>
 
-        {/* Admin Controls */}
-        <div className="flex gap-2 mt-4 pt-4 border-t-2 border-gray-200">
-          <Badge variant="secondary" className="text-xs">Admin Controls:</Badge>
-          <Button variant="outline" size="sm" className="border-2 border-gray-300">
-            <Plus className="mr-1 h-3 w-3" />
-            Add Question
-          </Button>
-          <Button variant="outline" size="sm" className="border-2 border-gray-300">
-            <Edit className="mr-1 h-3 w-3" />
-            Update
-          </Button>
-          <Button variant="outline" size="sm" className="border-2 border-gray-300">
-            <Trash2 className="mr-1 h-3 w-3" />
-            Remove
-          </Button>
-        </div>
+        {/* Removed admin controls below search questions */}
       </div>
 
       {/* Questions Display */}
