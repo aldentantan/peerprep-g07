@@ -16,6 +16,7 @@
   "dependencies": {
     "crypto": "^1.0.1",
     "express": "^5.2.1",
+    "ioredis": "^5.10.0",
     "ws": "^8.19.0",
     "zod": "^4.3.6"
   },

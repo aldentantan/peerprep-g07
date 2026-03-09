@@ -1,0 +1,16 @@
+services:
+  matching_service:
+    build: .
+    environment:
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+    depends_on:
+      redis_queue:
+        condition: service_healthy
+
+  redis_queue:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
