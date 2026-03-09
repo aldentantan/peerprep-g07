@@ -22,7 +22,6 @@ interface AddQuestionScreenProps {
 }
 
 export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
-  const [questionId, setQuestionId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [difficulty, setDifficulty] = useState("Medium");
@@ -135,21 +134,6 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
               Basic Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Question ID */}
-              <div className="space-y-2">
-                <Label htmlFor="questionId" className="text-gray-700 font-medium">
-                  Question ID <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="questionId"
-                  placeholder="e.g., Q007"
-                  value={questionId}
-                  onChange={(e) => setQuestionId(e.target.value)}
-                  className="h-11 border-2 border-gray-300 font-mono"
-                />
-                <p className="text-xs text-gray-500">Unique identifier for the question</p>
-              </div>
-
               {/* Title */}
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="title" className="text-gray-700 font-medium">
@@ -242,7 +226,7 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
           <div className="pt-6 border-t-2 border-gray-200">
             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <ImageIcon className="w-5 h-5 text-purple-600" />
-              Question Image <span className="text-red-500">*</span>
+              Question Image (Optional)
             </h2>
             <div className="space-y-3">
               <p className="text-sm text-gray-600">
@@ -387,16 +371,6 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
         </Button>
       </div>
 
-      {/* Admin Info Note */}
-      <div className="p-4 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50 text-center">
-        <div className="text-sm text-purple-800">
-          <p className="font-semibold mb-1 flex items-center justify-center gap-2">
-            <Shield className="w-4 h-4" />
-            Admin Question Creation
-          </p>
-          <p>Fill in all required fields (*) to create a new coding question. The question will be visible to all users once saved.</p>
-        </div>
-      </div>
     </div>
   );
 }
