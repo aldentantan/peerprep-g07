@@ -20,7 +20,7 @@ export type QueueRequest = {
 }
 
 export type Match = {
-  matchId: string;
+  roomId: string;
   users: [string, string];
   createdAt: number;
   topic: Topic;

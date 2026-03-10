@@ -38,8 +38,7 @@ async function tryMatch(topic: Topic, difficulty: Difficulty, language: Language
   const roomId = randomUUID();
 
   const matchEvent = JSON.stringify({
-    user1Id,
-    user2Id,
+    users: [user1Id, user2Id],
     roomId,
     topic,
     difficulty,
