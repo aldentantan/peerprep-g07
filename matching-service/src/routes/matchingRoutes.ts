@@ -56,5 +56,7 @@ function handleMessage(userId: string, ws: WebSocket, raw: Buffer) {
 }
 
 function sendError(ws: WebSocket, message: string) {
-  ws.send(JSON.stringify({ type: 'error', message }));
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'error', message }));
+  }
 }

@@ -21,6 +21,7 @@ function removeUser(userId: string) {
 }
 
 export async function handleEnqueue(userId: string, topic: Topic, difficulty: Difficulty, language: Language, ws: WebSocket) {
+  // TODO: Store user state in Redis hash to allow multiple matching service instances to work
   if (userStateStore.has(userId)) {
     pushToWs(ws, { type: 'error', message: 'User is already in a queue or a match.' });
     return;
@@ -39,7 +40,7 @@ export async function handleCancel(userId: string) {
   if (!state) return;
 
   const { queueKey } = state;
-  await redis.lrem(`${queueKey}`, 1, userId);
+  await redis.lrem(`${queueKey}`, 0, userId);
 
   const ws = wsConnectionStore.get(userId);
   pushToWs(ws, { type: 'cancelled' });
@@ -52,7 +53,7 @@ export async function cleanupTimedOutUsers() {
 
   for (const [userId, state] of userStateStore.entries()) {
     if (now - state.enqueuedAt >= TIMEOUT_MS) {
-      await redis.lrem(`${state.queueKey}`, 1, userId);
+      await redis.lrem(`${state.queueKey}`, 0, userId);
       const ws = wsConnectionStore.get(userId);
       pushToWs(ws, { type: 'timeout' });
       removeUser(userId);

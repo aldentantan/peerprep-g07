@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { redis } from "../redis/redisClient";
 import { Topic, Difficulty, Language } from "../types";
 
+// TODO: Create a set of active queue keys in Redis and iterate through and poll only active queue keys
 function pollAllQueues() {
   for (const topic of TOPICS) {
     for (const difficulty of DIFFICULTIES) {
