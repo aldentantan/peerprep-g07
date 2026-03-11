@@ -38,7 +38,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/questions → question-service POST /questions (admin only) '
+// POST /api/questions → question-service POST /questions (admin only)
 // Creates a new question. 
 router.post('/', verifyToken, verifyAdmin, async (req, res) => {
   try {
