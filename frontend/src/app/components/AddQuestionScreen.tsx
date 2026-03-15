@@ -11,7 +11,8 @@ import {
   Image as ImageIcon,
   Shield,
   Plus,
-  Trash2
+  Trash2,
+  Info
 } from "lucide-react";
 import { useState } from "react";
 import { createQuestion } from "@/app/services/questionService";
@@ -130,7 +131,7 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
           {/* Basic Information Section */}
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-purple-600" />
+              <Info className="w-5 h-5 text-purple-600" />
               Basic Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -158,7 +159,7 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
                   placeholder="Provide a clear description of the problem..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="min-h-24 border-2 border-gray-300 resize-none"
+                  className="min-h-24 h-28 border-2 border-gray-300 bg-gray-100 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none"
                   rows={4}
                 />
               </div>

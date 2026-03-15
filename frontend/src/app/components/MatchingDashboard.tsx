@@ -123,8 +123,19 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Find a Match</h1>
+      <div className="max-w-4xl mx-auto">
+      {/* Matching Header Banner */}
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg p-4 text-white shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+            <Target className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Find a Match</h1>
+            <p className="text-purple-100 text-sm">Get paired with a peer to practice coding together</p>
+          </div>
+        </div>
+      </div>
       </div>
 
       <div className="max-w-4xl mx-auto">

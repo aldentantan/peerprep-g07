@@ -8,7 +8,8 @@ dotenv.config();
 const router = Router();
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3000';
 
-// GET /api/users/me → user-service GET /users/me
+// GET /api/users/me → user-service GET /users/me 
+// Get current user's profile
 router.get('/me', verifyToken, async (req, res) => {
   try {
     const response = await axios.get(`${USER_SERVICE_URL}/users/me`, {
@@ -23,7 +24,8 @@ router.get('/me', verifyToken, async (req, res) => {
   }
 });
 
-// PATCH /api/users/me → user-service PATCH /users/me
+// PATCH /api/users/me → user-service PATCH /users/me 
+// Updates current user's profile
 router.patch('/me', verifyToken, async (req, res) => {
   try {
     const response = await axios.patch(`${USER_SERVICE_URL}/users/me`, req.body, {
@@ -38,7 +40,8 @@ router.patch('/me', verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/users/all → user-service GET /users/all (root-admin only)
+// GET /api/users/all → user-service GET /users/all (root-admin only) 
+// Get all users
 router.get('/all', verifyToken, async (req, res) => {
   try {
     const response = await axios.get(`${USER_SERVICE_URL}/users/all`, {
@@ -53,7 +56,8 @@ router.get('/all', verifyToken, async (req, res) => {
   }
 });
 
-// PATCH /api/users/:email/role → user-service PATCH /users/:email/role (root-admin only)
+// PATCH /api/users/:email/role → user-service PATCH /users/:email/role (root-admin only) 
+// Updates user role by email
 router.patch('/:email/role', verifyToken, async (req, res) => {
   try {
     const response = await axios.patch(

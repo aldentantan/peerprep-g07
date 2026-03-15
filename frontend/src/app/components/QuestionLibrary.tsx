@@ -89,15 +89,15 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
   return (
     <div className="space-y-6">
       {/* Admin Header Banner */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg p-6 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg p-4 text-white shadow-lg">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-              <Shield className="w-6 h-6" />
+            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+              <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">Question Library</h1>
-              <p className="text-purple-100 text-sm mt-1">Admin Management Portal</p>
+              <h1 className="text-2xl font-bold">Question Library</h1>
+              <p className="text-purple-100 text-sm">Admin Management Portal</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

@@ -23,6 +23,7 @@ import { EditQuestionScreen } from "@/app/components/EditQuestionScreen";
 import { CollaborationWorkspace } from "@/app/components/CollaborationWorkspace";
 import { SoloWorkspace } from "@/app/components/SoloWorkspace";
 import { AdminPanel } from "@/app/components/AdminPanel";
+import { SciFiBackground } from "@/app/components/SciFiBackground";
 import { isAuthenticated, logout, getProfile } from "@/app/services/authService";
 
 type Screen = "login" | "signup" | "forgotPassword" | "profile" | "matching" | "questions" | "addQuestion" | "editQuestion" | "collaboration" | "solo" | "admin";
@@ -80,18 +81,19 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="relative min-h-screen">
+      <SciFiBackground />
       {/* Top Navigation Bar */}
-      <nav className="border-b-4 border-gray-300 bg-white sticky top-0 z-50">
+      <nav className="border-b border-white/10 bg-[#0f1525]/90 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 border-3 border-gray-400 rounded-lg flex items-center justify-center bg-blue-600 text-white font-bold text-lg">
+              <div className="w-10 h-10 border-2 border-sky-400/50 rounded-lg flex items-center justify-center bg-sky-500/20 text-sky-300 font-bold text-lg">
                 &lt;/&gt;
               </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-900">PeerPrep</h1>
+                <h1 className="text-lg font-bold text-white">PeerPrep</h1>
               </div>
             </div>
 
@@ -106,8 +108,8 @@ export default function App() {
                     onClick={() => setCurrentScreen(item.id)}
                     className={
                       currentScreen === item.id 
-                        ? "bg-blue-600 text-white" 
-                        : "text-gray-700 hover:bg-gray-100"
+                        ? "bg-sky-500/20 text-sky-300 border border-sky-500/30" 
+                        : "text-gray-400 hover:bg-white/10 hover:text-white"
                     }
                   >
                     <Icon className="mr-2 h-4 w-4" />
@@ -118,7 +120,7 @@ export default function App() {
               <Button 
                 variant="outline" 
                 onClick={handleLogout}
-                className="ml-2 border-2 border-gray-300"
+                className="ml-2 border border-white/20 text-black hover:bg-white/10"
               >
                 Logout
               </Button>
@@ -137,7 +139,7 @@ export default function App() {
 
           {/* Mobile Menu */}
           {isMobileMenuOpen && (
-            <div className="md:hidden py-4 border-t-2 border-gray-200">
+              <div className="md:hidden py-4 border-t border-white/10">
               <div className="space-y-2">
                 {navigationItems.map((item) => {
                   const Icon = item.icon;
@@ -151,8 +153,8 @@ export default function App() {
                       }}
                       className={`w-full justify-start ${
                         currentScreen === item.id 
-                          ? "bg-blue-600 text-white" 
-                          : "text-gray-700"
+                          ? "bg-sky-500/20 text-sky-300" 
+                          : "text-gray-400 hover:text-white"
                       }`}
                     >
                       <Icon className="mr-2 h-4 w-4" />
@@ -167,7 +169,7 @@ export default function App() {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {currentScreen === "profile" && <UserProfileScreen />}
         {currentScreen === "matching" && <MatchingDashboard onNavigateToCollaboration={() => setCurrentScreen("collaboration")} />}
         {currentScreen === "questions" && (userRole === "admin" || userRole === "root-admin") && <QuestionLibrary onStartSession={() => setCurrentScreen("solo")} onNavigateToAddQuestion={() => setCurrentScreen("addQuestion")} onNavigateToEditQuestion={(q) => { setEditingQuestion(q); setCurrentScreen("editQuestion"); }} />}

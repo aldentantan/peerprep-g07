@@ -8,7 +8,8 @@ dotenv.config();
 const router = Router();
 const QUESTION_SERVICE_URL = process.env.QUESTION_SERVICE_URL || 'http://localhost:3001';
 
-// GET /api/questions → question-service GET /questions (public)
+// GET /api/questions → question-service GET /questions (public) 
+// Fetches the list of questions, forwarding query parameters to the question service
 router.get('/', async (req, res) => {
   try {
     const response = await axios.get(`${QUESTION_SERVICE_URL}/questions`, {
@@ -23,7 +24,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/questions/:id → question-service GET /questions/:id (public)
+// GET /api/questions/:id → question-service GET /questions/:id (public) 
+// Fetches a specific question by ID
 router.get('/:id', async (req, res) => {
   try {
     const response = await axios.get(`${QUESTION_SERVICE_URL}/questions/${req.params.id}`);
@@ -37,6 +39,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/questions → question-service POST /questions (admin only)
+// Creates a new question. 
 router.post('/', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const response = await axios.post(
@@ -53,7 +56,7 @@ router.post('/', verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
-// PUT /api/questions/:id → question-service PUT /questions/:id (admin only)
+// PUT /api/questions/:id → question-service PUT /questions/:id (admin only) Updates a question by ID.
 router.put('/:id', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const response = await axios.put(
@@ -70,7 +73,8 @@ router.put('/:id', verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/questions/:id → question-service DELETE /questions/:id (admin only)
+// DELETE /api/questions/:id → question-service DELETE /questions/:id (admin only) 
+// Deletes a question by ID.
 router.delete('/:id', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const response = await axios.delete(

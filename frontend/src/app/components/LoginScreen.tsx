@@ -5,6 +5,7 @@ import { Checkbox } from "@/app/components/ui/checkbox";
 import { Users, Code2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { login } from "@/app/services/authService";
+import { SciFiBackground } from "@/app/components/SciFiBackground";
 
 interface LoginScreenProps {
   onNavigateToSignup: () => void;
@@ -44,28 +45,30 @@ export function LoginScreen({
     }
   };
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-50">
+    <div className="relative min-h-screen flex overflow-hidden">
+      <SciFiBackground />
+
       {/* Left Side - Marketing Content */}
-      <div className="flex-1 flex flex-col justify-center px-8 lg:px-16 py-12">
+      <div className="flex-1 flex flex-col justify-center px-8 lg:px-16 py-12 relative z-10">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-12">
-          <div className="w-10 h-10 border-3 border-gray-400 rounded-lg flex items-center justify-center bg-blue-600 text-white font-bold text-lg">
+          <div className="w-10 h-10 border-2 border-sky-400/50 rounded-lg flex items-center justify-center bg-sky-500/20 text-sky-300 font-bold text-lg shadow-[0_0_15px_rgba(56,189,248,0.3)]">
             &lt;/&gt;
           </div>
-          <span className="text-xl font-bold text-gray-900">
+          <span className="text-xl font-bold text-white">
             PeerPrep
           </span>
         </div>
 
         {/* Hero Text */}
         <div className="max-w-xl mb-12">
-          <h1 className="text-5xl font-bold text-gray-900 mb-2">
+          <h1 className="text-5xl font-bold text-white mb-2">
             Practice Coding
           </h1>
-          <h1 className="text-5xl font-bold text-indigo-600 mb-6">
+          <h1 className="text-5xl font-bold text-sky-400 mb-6">
             With Peers
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-gray-300">
             Get matched with fellow developers, solve coding
             problems together, and ace your technical
             interviews.
@@ -77,20 +80,20 @@ export function LoginScreen({
 
           {/* Real-Time Matching */}
           <div className="flex gap-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Users className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 bg-sky-500/20 border border-sky-500/30 rounded-lg flex items-center justify-center flex-shrink-0 shadow-[0_0_10px_rgba(56,189,248,0.15)]">
+              <Users className="w-6 h-6 text-sky-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900 mb-1">
+              <h3 className="font-semibold text-white mb-1">
                 Real-Time Matching
               </h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-gray-400 text-sm">
                 Get paired with peers based on{" "}
-                <span className="text-indigo-600">
+                <span className="text-sky-400">
                   difficulty level
                 </span>{" "}
                 and{" "}
-                <span className="text-indigo-600">shared topic</span>{" "}
+                <span className="text-sky-400">shared topic</span>{" "}
                 you want to practice
               </p>
             </div>
@@ -98,31 +101,31 @@ export function LoginScreen({
 
           {/* Collaborative Coding */}
           <div className="flex gap-4">
-            <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Code2 className="w-6 h-6 text-indigo-600" />
+            <div className="w-12 h-12 bg-violet-500/20 border border-violet-500/30 rounded-lg flex items-center justify-center flex-shrink-0 shadow-[0_0_10px_rgba(139,92,246,0.15)]">
+              <Code2 className="w-6 h-6 text-violet-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900 mb-1">
+              <h3 className="font-semibold text-white mb-1">
                 Collaborative Coding
               </h3>
-              <p className="text-gray-600 text-sm">
-                Work together in a <span className="text-indigo-600"> shared </span> coding environment to solve problems in real-time
+              <p className="text-gray-400 text-sm">
+                Work together in a <span className="text-sky-400"> shared </span> coding environment to solve problems in real-time
               </p>
             </div>
           </div>
 
           {/* Curated Questions */}
           <div className="flex gap-4">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-6 h-6 text-green-600" />
+            <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-500/30 rounded-lg flex items-center justify-center flex-shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.15)]">
+              <Sparkles className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900 mb-1">
+              <h3 className="font-semibold text-white mb-1">
                 Curated Questions
               </h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-gray-400 text-sm">
                 Access easy, medium, and hard problems across{" "}
-                <span className="text-indigo-600">
+                <span className="text-sky-400">
                   multiple topics
                 </span>
               </p>
@@ -132,14 +135,14 @@ export function LoginScreen({
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="flex-1 flex items-center justify-center px-8 py-12">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
+      <div className="flex-1 flex items-center justify-center px-8 py-12 relative z-10">
+        <div className="w-full max-w-md bg-[#0f1525]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(56,189,248,0.06)] p-8">
           {/* Form Header */}
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl font-bold text-white mb-2">
               Welcome Back
             </h2>
-            <p className="text-gray-600 text-sm">
+            <p className="text-gray-400 text-sm">
               Enter your credentials to access your account
             </p>
           </div>
@@ -149,7 +152,7 @@ export function LoginScreen({
           <div className="space-y-2 mb-4">
             <Label
               htmlFor="email"
-              className="text-gray-700 font-medium"
+              className="text-gray-300 font-medium"
             >
               Email
             </Label>
@@ -157,7 +160,7 @@ export function LoginScreen({
               id="email"
               type="email"
               placeholder="you@example.com"
-              className="h-11 border-gray-300"
+              className="h-11 bg-white/5 border-white/20 text-white placeholder:text-gray-500 focus:border-sky-400/60"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -167,7 +170,7 @@ export function LoginScreen({
           <div className="space-y-2 mb-4">
             <Label
               htmlFor="password"
-              className="text-gray-700 font-medium"
+              className="text-gray-300 font-medium"
             >
               Password
             </Label>
@@ -175,7 +178,7 @@ export function LoginScreen({
               id="password"
               type="password"
               placeholder="••••••••"
-              className="h-11 border-gray-300"
+              className="h-11 bg-white/5 border-white/20 text-white placeholder:text-gray-500 focus:border-sky-400/60"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -187,7 +190,7 @@ export function LoginScreen({
               <Checkbox id="remember" />
               <label
                 htmlFor="remember"
-                className="text-sm text-gray-700 cursor-pointer"
+                className="text-sm text-gray-400 cursor-pointer"
               >
                 Remember me
               </label>
@@ -195,7 +198,7 @@ export function LoginScreen({
             <button
               type="button"
               onClick={onNavigateToForgotPassword}
-              className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              className="text-sm text-sky-400 hover:text-sky-300 font-medium"
             >
               Forgot password?
             </button>
@@ -212,18 +215,18 @@ export function LoginScreen({
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-11 text-base font-semibold mb-6"
+            className="w-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white h-11 text-base font-semibold mb-6 shadow-[0_0_20px_rgba(56,189,248,0.2)]"
           >
             {isLoading ? "Signing in..." : "Sign In"}
           </Button>
           </form>
 
           {/* Sign Up Link */}
-          <div className="text-center text-sm text-gray-600">
+          <div className="text-center text-sm text-gray-400">
             Don't have an account?{" "}
             <button
               onClick={onNavigateToSignup}
-              className="text-indigo-600 hover:text-indigo-700 font-semibold"
+              className="text-sky-400 hover:text-sky-300 font-semibold"
             >
               Create one
             </button>

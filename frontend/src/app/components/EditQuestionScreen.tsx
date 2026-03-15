@@ -107,7 +107,7 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg p-6 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-lg p-6 text-white shadow-lg">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
@@ -162,7 +162,7 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
                   placeholder="Provide a clear description of the problem..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="min-h-24 border-2 border-gray-300 resize-none"
+                  className="min-h-24 h-28 border-2 border-gray-300 bg-gray-50 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none"
                   rows={4}
                 />
               </div>

@@ -72,10 +72,19 @@ export function AdminPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-          <Badge className="bg-red-100 text-red-800 border border-red-300">
+      {/* Admin Header Banner */}
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg p-4 text-white shadow-lg">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">User Management</h1>
+              <p className="text-purple-100 text-sm">Root Admin Control Panel</p>
+            </div>
+          </div>
+          <Badge className="bg-white/20 text-white border-white/30 px-3 py-1.5 backdrop-blur-sm">
             <Crown className="w-3 h-3 mr-1" />
             Root Admin Only
           </Badge>

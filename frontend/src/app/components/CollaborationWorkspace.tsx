@@ -34,25 +34,32 @@ export function CollaborationWorkspace({ onLeaveSession }: CollaborationWorkspac
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-3xl font-bold text-gray-900">Collaboration Workspace</h1>
-        </div>
-        
-        {/* Session Controls */}
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="border-2 border-gray-300">
-            <Save className="mr-2 h-4 w-4" />
-            Save
-          </Button>
-          <Button variant="outline" size="sm" className="border-2 border-gray-300">
-            <Play className="mr-2 h-4 w-4" />
-            Run Code
-          </Button>
-          <Button variant="outline" size="sm" className="border-2 border-red-300 text-red-600 hover:bg-red-50" onClick={onLeaveSession}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Leave
-          </Button>
+      {/* Collaboration Header Banner */}
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg p-4 text-white shadow-lg">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+              <Code2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">Collaboration Workspace</h1>
+              <p className="text-purple-100 text-sm">Live coding session with your peer</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button className="bg-white text-purple-600 hover:bg-purple-50 border-white/80" size="sm">
+              <Save className="mr-2 h-4 w-4" />
+              Save
+            </Button>
+            <Button className="bg-white text-purple-600 hover:bg-purple-50 border-white/80" size="sm">
+              <Play className="mr-2 h-4 w-4" />
+              Run Code
+            </Button>
+            <Button className="bg-red-500/80 text-white hover:bg-red-600 border-red-400/30" size="sm" onClick={onLeaveSession}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Leave
+            </Button>
+          </div>
         </div>
       </div>
 
