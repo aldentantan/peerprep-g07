@@ -3,7 +3,7 @@ name: Deploy to Elastic Beanstalk
 on:
   push:
     branches:
-      - main
+      - prepareDeployment
 
 jobs:
   deploy:
@@ -31,4 +31,3 @@ jobs:
           version_label: v-${{ github.sha }}
           region: ap-southeast-1
           deployment_package: deploy.zip
-          
