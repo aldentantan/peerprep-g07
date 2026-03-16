@@ -31,7 +31,8 @@ export async function createUser(req, res) {
 
         if (!isMinLength || !hasUpperCase || !hasLowerCase || !hasDigit) {
             return res.status(400).json({
-                error: 'password must be at least 8 characters long and include uppercase letters, lowercase letters, and digits',
+              error:
+                "password must be at least 8 characters long and include uppercase letters, lowercase letters, and digits.",
             });
         }
 
