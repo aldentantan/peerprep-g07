@@ -49,7 +49,7 @@ export function LoginScreen({
       <SciFiBackground />
 
       {/* Left Side - Marketing Content */}
-      <div className="flex-1 flex flex-col justify-center px-8 lg:px-16 py-12 relative z-10">
+      <div className="flex-1 flex flex-col justify-center pl-12 lg:pl-36 pr-4 lg:pr-8 py-12 relative z-10">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-12">
           <div className="w-10 h-10 border-2 border-sky-400/50 rounded-lg flex items-center justify-center bg-sky-500/20 text-sky-300 font-bold text-lg shadow-[0_0_15px_rgba(56,189,248,0.3)]">

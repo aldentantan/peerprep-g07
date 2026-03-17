@@ -117,7 +117,7 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
           </div>
           <Button 
             onClick={onBack}
-            className="bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm border-white/30"
+            className="bg-white text-purple-600 hover:bg-purple-50 border-white/80"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Library

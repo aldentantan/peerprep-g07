@@ -139,43 +139,45 @@ export function UserProfileScreen() {
             </div>
           </div>
 
-          {/* Delete Account Button */}
-          <div className="pt-4 border-t-2 border-gray-200">
-            <Button
-              variant="outline"
-              className="mt-2 border-2 border-red-300 text-red-500"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete Account
-            </Button>
-          </div>
-
-          {/* Delete Confirmation */}
-          {showDeleteConfirm && (
+          {/* Delete Account Button - hidden for root-admin */}
+          {role !== "root-admin" && (
             <div className="pt-4 border-t-2 border-gray-200">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
-                <p className="text-sm text-gray-500">
-                  Are you sure you want to delete your account? This action is irreversible.
-                </p>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  className="border-2 border-gray-300"
-                  onClick={() => setShowDeleteConfirm(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                  onClick={handleDeleteAccount}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Account
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                className="mt-2 border-2 border-red-300 text-red-500"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Account
+              </Button>
+
+              {/* Delete Confirmation */}
+              {showDeleteConfirm && (
+                <div className="pt-4 border-t-2 border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                    <p className="text-sm text-gray-500">
+                      Are you sure you want to delete your account? This action is irreversible.
+                    </p>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      className="border-2 border-gray-300"
+                      onClick={() => setShowDeleteConfirm(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                      onClick={handleDeleteAccount}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Account
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
