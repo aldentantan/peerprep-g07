@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { 
@@ -24,6 +24,16 @@ import { CollaborationWorkspace } from "@/app/components/CollaborationWorkspace"
 import { SoloWorkspace } from "@/app/components/SoloWorkspace";
 import { AdminPanel } from "@/app/components/AdminPanel";
 import { SciFiBackground } from "@/app/components/SciFiBackground";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 import { isAuthenticated, logout, getProfile } from "@/app/services/authService";
 
 type Screen = "login" | "signup" | "forgotPassword" | "profile" | "matching" | "questions" | "addQuestion" | "editQuestion" | "collaboration" | "solo" | "admin";
@@ -34,6 +44,9 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userRole, setUserRole] = useState<string>("user");
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
+  const isMatchingRef = useRef(false);
+  const [showNavConfirm, setShowNavConfirm] = useState(false);
+  const pendingScreenRef = useRef<Screen | null>(null);
 
   // Check auth state on mount
   useEffect(() => {
@@ -59,6 +72,33 @@ export default function App() {
     setIsLoggedIn(false);
     setUserRole("user");
     setCurrentScreen("login");
+  };
+
+  const handleMatchingStateChange = (isSearching: boolean) => {
+    isMatchingRef.current = isSearching;
+  };
+
+  const navigateTo = (screen: Screen) => {
+    if (isMatchingRef.current && screen !== "matching") {
+      pendingScreenRef.current = screen;
+      setShowNavConfirm(true);
+      return;
+    }
+    setCurrentScreen(screen);
+  };
+
+  const confirmNavigation = () => {
+    isMatchingRef.current = false;
+    if (pendingScreenRef.current) {
+      setCurrentScreen(pendingScreenRef.current);
+      pendingScreenRef.current = null;
+    }
+    setShowNavConfirm(false);
+  };
+
+  const cancelNavigation = () => {
+    pendingScreenRef.current = null;
+    setShowNavConfirm(false);
   };
 
   // Show login or signup screen if not logged in
@@ -105,7 +145,7 @@ export default function App() {
                   <Button
                     key={item.id}
                     variant={currentScreen === item.id ? "default" : "ghost"}
-                    onClick={() => setCurrentScreen(item.id)}
+                    onClick={() => navigateTo(item.id)}
                     className={
                       currentScreen === item.id 
                         ? "bg-sky-500/20 text-sky-300 border border-sky-500/30" 
@@ -148,7 +188,7 @@ export default function App() {
                       key={item.id}
                       variant={currentScreen === item.id ? "default" : "ghost"}
                       onClick={() => {
-                        setCurrentScreen(item.id);
+                        navigateTo(item.id);
                         setIsMobileMenuOpen(false);
                       }}
                       className={`w-full justify-start ${
@@ -171,7 +211,7 @@ export default function App() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {currentScreen === "profile" && <UserProfileScreen />}
-        {currentScreen === "matching" && <MatchingDashboard onNavigateToCollaboration={() => setCurrentScreen("collaboration")} />}
+        {currentScreen === "matching" && <MatchingDashboard onNavigateToCollaboration={() => setCurrentScreen("collaboration")} onMatchingStateChange={handleMatchingStateChange} />}
         {currentScreen === "questions" && (userRole === "admin" || userRole === "root-admin") && <QuestionLibrary onStartSession={() => setCurrentScreen("solo")} onNavigateToAddQuestion={() => setCurrentScreen("addQuestion")} onNavigateToEditQuestion={(q) => { setEditingQuestion(q); setCurrentScreen("editQuestion"); }} />}
         {currentScreen === "addQuestion" && (userRole === "admin" || userRole === "root-admin") && <AddQuestionScreen onBack={() => setCurrentScreen("questions")} />}
         {currentScreen === "editQuestion" && (userRole === "admin" || userRole === "root-admin") && editingQuestion && <EditQuestionScreen question={editingQuestion} onBack={() => setCurrentScreen("questions")} />}
@@ -179,6 +219,26 @@ export default function App() {
         {currentScreen === "solo" && <SoloWorkspace onBackToLibrary={() => setCurrentScreen("questions")} />}
         {currentScreen === "admin" && userRole === "root-admin" && <AdminPanel />}
       </main>
+
+      {/* Navigation confirmation dialog when matching is active */}
+      <AlertDialog open={showNavConfirm} onOpenChange={(open) => { if (!open) cancelNavigation(); }}>
+        <AlertDialogContent className="bg-[#0f1525] border border-white/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Leave Matching?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400">
+              You are currently searching for a match. Leaving this page will cancel your match request. Are you sure you want to leave?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelNavigation} className="border-white/20 text-black hover:bg-white/10">
+              Stay
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmNavigation} className="bg-red-600 hover:bg-red-700 text-white">
+              Leave &amp; Cancel Match
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

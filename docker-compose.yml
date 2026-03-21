@@ -71,6 +71,15 @@ services:
       retries: 10
     restart: unless-stopped
 
+  matching-service:
+    build: ./matching_service
+    container_name: matching-service
+    environment:
+      - MATCHING_SERVICE_PORT=${MATCHING_SERVICE_PORT}
+    ports:
+      - "${MATCHING_SERVICE_PORT}:${MATCHING_SERVICE_PORT}"
+    restart: unless-stopped
+
   api-gateway:
     build: ./api-gateway
     container_name: api-gateway
@@ -78,9 +87,12 @@ services:
       - PORT=${GATEWAY_PORT}
       - USER_SERVICE_URL=${USER_SERVICE_URL}
       - QUESTION_SERVICE_URL=${QUESTION_SERVICE_URL}
+      - MATCHING_SERVICE_URL=http://matching-service:${MATCHING_SERVICE_PORT}
       - JWT_SECRET=${JWT_SECRET}
     ports:
       - "${GATEWAY_PORT}:${GATEWAY_PORT}"
+    depends_on:
+      - matching-service
     restart: unless-stopped
   
   frontend:

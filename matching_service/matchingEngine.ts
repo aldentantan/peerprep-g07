@@ -10,8 +10,7 @@ import {
 } from "./types";
 import { toQueueKey } from "./utils";
 
-// const TIMEOUT_MS = 2 * 60 * 1000; // 2 mins timeout
-const TIMEOUT_MS = 10 * 1000; // 10 seconds timeout for testing purposes
+const TIMEOUT_MS = 30 * 1000; // 30 seconds match timeout
 const STALE_TTL_MS = 1 * 60 * 1000; // 1 mins before terminal state entries are purged
 
 function enqueue(req: QueueRequest): EnqueueResult {
@@ -22,6 +21,9 @@ function enqueue(req: QueueRequest): EnqueueResult {
   if (!canUserQueue(req.userId)) {
     return { status: "error", message: "User is already in a queue or a match." };
   }
+
+  // Clear stale matched/timeout state so re-enqueue works
+  clearUserState(req.userId);
 
   const enqueuedAt = Date.now();
   if (!queue) {
@@ -128,13 +130,34 @@ function getUserState(userId: string): UserStateResponse | null {
 
 function canUserQueue(userId: string) {
   const userState = userStateMap.get(userId);
-  // Allow queuing if no state exists, or if the previous attempt timed out
-  return userState === undefined || userState.state === "timeout";
+  // Allow queuing if no state exists, or if the previous attempt ended (matched/timeout)
+  return (
+    userState === undefined ||
+    userState.state === "timeout" ||
+    userState.state === "matched"
+  );
+}
+
+/** Remove any stale state so the user can re-enqueue cleanly. */
+function clearUserState(userId: string) {
+  const userState = userStateMap.get(userId);
+  if (!userState) return;
+  // If still queued, remove from the queue first
+  if (userState.state === "queued") {
+    const queue = queueMap.get(userState.queueKey);
+    if (queue) {
+      const idx = queue.findIndex((u) => u.userId === userId);
+      if (idx !== -1) queue.splice(idx, 1);
+      if (queue.length === 0) queueMap.delete(userState.queueKey);
+    }
+  }
+  userStateMap.delete(userId);
 }
 
 // TODO: Figure out how to send response to frontend to handle user navigation on timeout
-function cleanupTimedOutUsers() {
+function cleanupTimedOutUsers(): string[] {
   const now = Date.now();
+  const timedOutUserIds: string[] = [];
 
   for (const [userId, stateInfo] of userStateMap.entries()) {
     // Purge stale terminal-state entries to prevent unbounded map growth
@@ -145,7 +168,7 @@ function cleanupTimedOutUsers() {
       continue;
     }
 
-    // Remove queued user from queue after 2 mins and mark as timed out
+    // Remove queued user from queue after timeout and mark as timed out
     if (now - stateInfo.enqueuedAt >= TIMEOUT_MS) {
       const queue = queueMap.get(stateInfo.queueKey);
       if (queue) {
@@ -154,11 +177,14 @@ function cleanupTimedOutUsers() {
         if (queue.length === 0) queueMap.delete(stateInfo.queueKey);
       }
       userStateMap.set(userId, { ...stateInfo, state: "timeout" });
+      timedOutUserIds.push(userId);
       console.log(
         `User ${userId} has timed out after ${TIMEOUT_MS}ms and has been removed from queue ${stateInfo.queueKey}`,
       );
     }
   }
+
+  return timedOutUserIds;
 }
 
 function cancelMatchRequest(userId: string) {
@@ -176,5 +202,19 @@ function cancelMatchRequest(userId: string) {
   userStateMap.delete(userId);
 }
 
-export { cancelMatchRequest, cleanupTimedOutUsers, enqueue, getUserState };
+/** Abandon a match and return the partner's userId, or null if not in a match. */
+function abandonMatch(userId: string): string | null {
+  const userState = userStateMap.get(userId);
+  if (!userState || userState.state !== "matched") return null;
+
+  const partnerId = userState.match.users.find((u) => u !== userId) ?? null;
+
+  // Clear both users' matched state so they can re-queue
+  userStateMap.delete(userId);
+  if (partnerId) userStateMap.delete(partnerId);
+
+  return partnerId;
+}
+
+export { abandonMatch, cancelMatchRequest, cleanupTimedOutUsers, clearUserState, enqueue, getUserState };
 

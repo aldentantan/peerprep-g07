@@ -3,6 +3,16 @@ import { Badge } from "@/app/components/ui/badge";
 import { Label } from "@/app/components/ui/label";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
+import {
   Users,
   Clock,
   CheckCircle,
@@ -11,24 +21,37 @@ import {
   AlertCircle,
   Target,
   AlertTriangle,
+  UserX,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
-type MatchingState = "idle" | "searching" | "matched" | "timeout";
+type MatchingState = "idle" | "searching" | "matched" | "timeout" | "abandoned";
+
+interface MatchInfo {
+  matchId: string;
+  users: [string, string];
+  createdAt: number;
+  topic: string;
+  difficulty: string;
+  language: string;
+}
 
 interface MatchingDashboardProps {
   onNavigateToCollaboration: () => void;
+  onMatchingStateChange?: (isSearching: boolean) => void;
 }
 
-export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboardProps) {
+export function MatchingDashboard({ onNavigateToCollaboration, onMatchingStateChange }: MatchingDashboardProps) {
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("Medium");
-  const [selectedTopics, setSelectedTopics] = useState<string[]>(["Algorithms"]);
+  const [selectedTopic, setSelectedTopic] = useState<string>("Algorithms");
   const [selectedLanguage, setSelectedLanguage] = useState<string>("JavaScript");
   const [matchingState, setMatchingState] = useState<MatchingState>("idle");
-  const [timeRemaining, setTimeRemaining] = useState(120);
-  const [matchAttempts, setMatchAttempts] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(30);
   const [showWarning, setShowWarning] = useState(false);
-  const [usersInQueue, setUsersInQueue] = useState(0);
+  const [matchData, setMatchData] = useState<MatchInfo | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const difficulties = ["Easy", "Medium", "Hard"];
   const topics = [
@@ -40,6 +63,7 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
     "Arrays",
     "Strings",
     "System Design",
+    "Linked Lists",
   ];
   const languages = [
     "JavaScript",
@@ -52,70 +76,183 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
     "C#",
   ];
 
+  // Map display names to backend enum values
+  const topicMap: Record<string, string> = {
+    "Algorithms": "algorithms",
+    "Data Structures": "data-structures",
+    "Dynamic Programming": "dynamic-programming",
+    "Graphs": "graphs",
+    "Trees": "trees",
+    "Arrays": "arrays",
+    "Strings": "strings",
+    "System Design": "system-design",
+    "Linked Lists": "linked-lists",
+  };
+
+  const languageMap: Record<string, string> = {
+    "JavaScript": "javascript",
+    "Python": "python",
+    "Java": "java",
+    "C++": "cpp",
+    "TypeScript": "typescript",
+    "Go": "go",
+    "Ruby": "ruby",
+    "C#": "csharp",
+  };
+
   const handleStartMatching = () => {
+    // Close any stale WebSocket from a previous attempt
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
     setMatchingState("searching");
-    setTimeRemaining(120);
+    setTimeRemaining(30);
     setShowWarning(false);
-    // Set initial random queue count
-    setUsersInQueue(Math.floor(Math.random() * 8) + 3); // Random between 3-10
-    
-    // Simulate matching process
+    setErrorMessage("");
+
+    const token = localStorage.getItem("token");
+    let userId = "";
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        userId = payload.id || payload.sub || payload.email || "";
+      } catch {
+        // ignore malformed token
+      }
+    }
+
+    if (!userId) {
+      setMatchingState("idle");
+      setErrorMessage("You must be logged in to match.");
+      return;
+    }
+
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3004/api";
+    // Derive WS URL from the API URL: http(s)://host:port/api -> ws(s)://host:port/ws/match
+    const baseUrl = apiUrl.replace(/\/api\/?$/, "");
+    const wsUrl = baseUrl.replace(/^http/, "ws") + `/ws/match?userId=${encodeURIComponent(userId)}`;
+
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        type: "enqueue",
+        topic: topicMap[selectedTopic] || selectedTopic.toLowerCase(),
+        difficulty: selectedDifficulty.toLowerCase(),
+        language: languageMap[selectedLanguage] || selectedLanguage.toLowerCase(),
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      let msg: Record<string, unknown>;
+      try {
+        msg = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+
+      if (msg.type === "queued") {
+        // Already showing "searching" state
+      } else if (msg.type === "matched") {
+        setMatchingState("matched");
+        setMatchData(msg.match as MatchInfo);
+      } else if (msg.type === "timeout") {
+        setMatchingState("timeout");
+      } else if (msg.type === "match_abandoned") {
+        setMatchingState("abandoned");
+      } else if (msg.type === "error") {
+        setErrorMessage(msg.message as string);
+        setMatchingState("idle");
+      }
+    };
+
+    ws.onerror = () => {
+      setErrorMessage("Connection error. Please try again.");
+      setMatchingState("idle");
+    };
+
+    ws.onclose = () => {
+      wsRef.current = null;
+    };
+  };
+
+  const handleCancelMatching = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "cancel" }));
+      wsRef.current.close();
+    }
+    wsRef.current = null;
+    setMatchingState("idle");
+    setTimeRemaining(30);
+    setShowWarning(false);
+  };
+
+  const handleRetry = () => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setMatchingState("idle");
+    setTimeRemaining(30);
+    setShowWarning(false);
+    setMatchData(null);
+    setErrorMessage("");
+  };
+
+  const handleFindAnotherMatch = () => {
+    setShowAbandonConfirm(true);
+  };
+
+  const confirmAbandon = () => {
+    setShowAbandonConfirm(false);
+    // Notify server that this user is abandoning the match
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "abandon" }));
+      wsRef.current.close();
+    }
+    wsRef.current = null;
+    setMatchingState("idle");
+    setMatchData(null);
+  };
+
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      wsRef.current?.close();
+    };
+  }, []);
+
+  // Client-side countdown timer for display
+  useEffect(() => {
+    if (matchingState !== "searching") return;
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
-        // Show warning at 15 seconds remaining
-        if (prev === 15) {
-          setShowWarning(true);
-        }
-        
+        if (prev === 11) setShowWarning(true);
         if (prev <= 1) {
           clearInterval(timer);
-          // Alternate between match and timeout based on attempt number
-          // Even attempts (0, 2, 4...) = matched, Odd attempts (1, 3, 5...) = timeout
-          const isMatched = matchAttempts % 2 === 0;
-          setMatchingState(isMatched ? "matched" : "timeout");
-          setMatchAttempts(prev => prev + 1);
-          setShowWarning(false);
+          // Safety net: trigger timeout locally if server message hasn't arrived
+          setMatchingState("timeout");
+          if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
+          }
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
+    return () => clearInterval(timer);
+  }, [matchingState]);
 
-    // Simulate queue count fluctuation
-    const queueTimer = setInterval(() => {
-      setUsersInQueue(prev => {
-        const change = Math.random() > 0.5 ? 1 : -1;
-        const newCount = prev + change;
-        return Math.max(1, Math.min(15, newCount)); // Keep between 1-15
-      });
-    }, 3000); // Update every 3 seconds
-
-    // Clean up queue timer when matching ends
-    setTimeout(() => clearInterval(queueTimer), 120000);
-  };
-
-  const handleCancelMatching = () => {
-    setMatchingState("idle");
-    setTimeRemaining(120);
-    setShowWarning(false);
-  };
-
-  const handleRetry = () => {
-    setMatchingState("idle");
-    setTimeRemaining(120);
-    setShowWarning(false);
-  };
-
-  const toggleTopic = (topic: string) => {
-    if (selectedTopics.includes(topic)) {
-      setSelectedTopics(selectedTopics.filter(t => t !== topic));
-    } else {
-      setSelectedTopics([...selectedTopics, topic]);
-    }
-  };
+  // Notify parent when matching state changes
+  useEffect(() => {
+    onMatchingStateChange?.(matchingState === "searching");
+  }, [matchingState, onMatchingStateChange]);
 
   useEffect(() => {
-    // Reset warning when state changes
     if (matchingState === "idle") {
       setShowWarning(false);
     }
@@ -188,20 +325,20 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
             {/* Topic Selection */}
             <div className="space-y-3">
               <Label className="text-gray-700 text-base">
-                Topics (Select Multiple)
+                Topic
               </Label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {topics.map((topic) => (
                   <button
                     key={topic}
-                    onClick={() => toggleTopic(topic)}
+                    onClick={() => setSelectedTopic(topic)}
                     className={`p-3 border-3 rounded-lg font-medium text-sm transition-all relative ${
-                      selectedTopics.includes(topic)
+                      selectedTopic === topic
                         ? "border-blue-600 bg-blue-50 text-blue-700"
                         : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
                     }`}
                   >
-                    {selectedTopics.includes(topic) && (
+                    {selectedTopic === topic && (
                       <div className="absolute top-1 right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
                         <CheckCircle className="w-3 h-3 text-white" />
                       </div>
@@ -246,11 +383,9 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
                 <Badge className="bg-blue-600 text-white px-3 py-1">
                   {selectedDifficulty}
                 </Badge>
-                {selectedTopics.map(topic => (
-                  <Badge key={topic} className="bg-purple-600 text-white px-3 py-1">
-                    {topic}
-                  </Badge>
-                ))}
+                <Badge className="bg-purple-600 text-white px-3 py-1">
+                  {selectedTopic}
+                </Badge>
                 <Badge className="bg-green-600 text-white px-3 py-1">
                   {selectedLanguage}
                 </Badge>
@@ -266,13 +401,13 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
               Start Matching
             </Button>
 
-            {/* Warning Message */}
-            {showWarning && (
+            {/* Warning/Error Message */}
+            {errorMessage && (
               <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg mt-4">
                 <div className="flex items-start gap-2 text-sm text-red-800">
                   <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                   <div className="text-left">
-                    Please select at least one topic to proceed with matching.
+                    {errorMessage}
                   </div>
                 </div>
               </div>
@@ -311,26 +446,24 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
                 <Badge className="bg-blue-600 text-white px-4 py-2 text-base">
                   {selectedDifficulty}
                 </Badge>
-                {selectedTopics.map(topic => (
-                  <Badge key={topic} className="bg-purple-600 text-white px-4 py-2 text-base">
-                    {topic}
-                  </Badge>
-                ))}
+                <Badge className="bg-purple-600 text-white px-4 py-2 text-base">
+                  {selectedTopic}
+                </Badge>
                 <Badge className="bg-green-600 text-white px-4 py-2 text-base">
                   {selectedLanguage}
                 </Badge>
               </div>
 
-              {/* Users in Queue Counter */}
+              {/* Users in Queue Info */}
               <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
                 <div className="flex items-center justify-center gap-3">
                   <Users className="w-5 h-5 text-blue-600" />
                   <div className="text-left">
                     <div className="text-sm text-blue-600 font-medium">
-                      <span className="text-2xl font-bold">{usersInQueue}</span> {usersInQueue === 1 ? 'user' : 'users'} in queue
+                      Waiting for another user...
                     </div>
                     <div className="text-xs text-blue-500">
-                      Currently searching for a match
+                      You'll be matched when someone joins with the same preferences
                     </div>
                   </div>
                 </div>
@@ -403,11 +536,9 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
                   <Badge className="bg-blue-600 text-white px-3 py-1">
                     {selectedDifficulty}
                   </Badge>
-                  {selectedTopics.map(topic => (
-                    <Badge key={topic} className="bg-purple-600 text-white px-3 py-1">
-                      {topic}
-                    </Badge>
-                  ))}
+                  <Badge className="bg-purple-600 text-white px-3 py-1">
+                    {selectedTopic}
+                  </Badge>
                   <Badge className="bg-green-600 text-white px-3 py-1">
                     {selectedLanguage}
                   </Badge>
@@ -435,13 +566,48 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
                 Continue to Workspace
               </Button>
               <Button 
-                onClick={handleRetry}
+                onClick={handleFindAnotherMatch}
                 variant="outline"
                 className="w-full border-2 border-gray-300 h-11"
               >
                 Find Another Match
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Abandoned State - partner left */}
+        {matchingState === "abandoned" && (
+          <div className="border-4 border-orange-300 rounded-lg p-8 bg-white space-y-6">
+            <div className="text-center space-y-4">
+              <div className="w-20 h-20 mx-auto bg-orange-100 rounded-full flex items-center justify-center">
+                <UserX className="w-10 h-10 text-orange-600" />
+              </div>
+              
+              <h2 className="text-2xl font-semibold text-gray-800">
+                Match Abandoned
+              </h2>
+              
+              <p className="text-gray-600">
+                Your match partner has left and is looking for a new match.
+              </p>
+
+              <div className="p-4 bg-orange-50 border-2 border-orange-200 rounded-lg">
+                <div className="flex items-start gap-2 text-sm text-orange-800">
+                  <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <div className="text-left">
+                    You can try matching again with the same or different preferences.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Button 
+              onClick={handleRetry}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-base"
+            >
+              Find a New Match
+            </Button>
           </div>
         )}
 
@@ -470,11 +636,9 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
                   <Badge className="bg-blue-600 text-white px-3 py-1">
                     {selectedDifficulty}
                   </Badge>
-                  {selectedTopics.map(topic => (
-                    <Badge key={topic} className="bg-purple-600 text-white px-3 py-1">
-                      {topic}
-                    </Badge>
-                  ))}
+                  <Badge className="bg-purple-600 text-white px-3 py-1">
+                    {selectedTopic}
+                  </Badge>
                   <Badge className="bg-green-600 text-white px-3 py-1">
                     {selectedLanguage}
                   </Badge>
@@ -507,6 +671,27 @@ export function MatchingDashboard({ onNavigateToCollaboration }: MatchingDashboa
           </div>
         )}
       </div>
+
+      {/* Abandon Match Confirmation Dialog */}
+      <AlertDialog open={showAbandonConfirm} onOpenChange={setShowAbandonConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Abandon this match?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your partner will be notified that you have left. Are you sure you want to find a different match?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="text-black">Stay</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmAbandon}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Leave &amp; Find New Match
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

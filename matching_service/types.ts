@@ -1,6 +1,6 @@
-export const TOPICS = ["arrays", "linked-lists", "trees", "graphs", "dynamic-programming"] as const;
+export const TOPICS = ["arrays", "linked-lists", "trees", "graphs", "dynamic-programming", "algorithms", "system-design", "strings", "data-structures"] as const;
 export const DIFFICULTIES = ["easy", "medium", "hard"] as const;
-export const LANGUAGES = ["javascript", "python", "java", "cpp"] as const;
+export const LANGUAGES = ["javascript", "python", "java", "cpp", "typescript", "go", "ruby", "csharp"] as const;
 
 export type Topic = typeof TOPICS[number];
 export type Difficulty = typeof DIFFICULTIES[number];
