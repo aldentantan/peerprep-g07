@@ -18,7 +18,8 @@ services:
       - REDIS_URL=redis://redis:6379
     ports:
       - "3003:3000"
-      - "8081:8080"
+      - "8080:8080"
+      - "8081:8081"
     depends_on:
       - redis
 
@@ -29,8 +30,8 @@ services:
     container_name: peerprep-frontend
     environment:
       - VITE_API_URL=http://localhost:3003
-      - VITE_WS_URL=ws://localhost:8081/yjs
-      - VITE_MATCH_WS_URL=ws://localhost:8081
+      - VITE_YJS_WS_URL=ws://localhost:8081/yjs
+      - VITE_MATCH_WS_URL=ws://localhost:8080
     ports:
       - "3038:3038"
     depends_on:

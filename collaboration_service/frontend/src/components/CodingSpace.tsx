@@ -5,10 +5,11 @@ import { useEffect, useState } from "react";
 import { MonacoBinding } from "y-monaco"
 import Editor from "@monaco-editor/react"
 import { useNavigate } from 'react-router-dom'
+import Chatbox from "./Chatbox";
 
 export default function CodingSpace() {
     const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:3000"
-    const wsBaseUrl = import.meta.env.VITE_WS_URL || "ws://localhost:8080/yjs"
+    const wsBaseUrl = import.meta.env.VITE_YJS_WS_URL || "ws://localhost:8081/yjs"
 
     // Need to fetch question and programming language from backend instead of using props
     const [roomData, setRoomData] = useState<{
@@ -60,7 +61,7 @@ export default function CodingSpace() {
 
         // 1. Create Yjs doc
         const ydoc = new Y.Doc()
-     
+
         // 2. Connect to Yjs server
         const provider = new WebsocketProvider(
             wsBaseUrl,
@@ -93,40 +94,47 @@ export default function CodingSpace() {
 
     return (
         <>
-            <div className="flex flex-col">
-                {isLoading ? (
-                    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                        <div className="bg-white px-8 py-6 rounded-xl shadow-md flex flex-col items-center gap-4">
-                            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                            <p className="text-gray-700 font-semibold">Loading Page...</p>
+            {isLoading ? (
+                <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                    <div className="bg-white px-8 py-6 rounded-xl shadow-md flex flex-col items-center gap-4">
+                        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-gray-700 font-semibold">Loading Page...</p>
+                    </div>
+                </div>
+            ) : loadError ? (
+                <p>{loadError}</p>
+            ) : roomData ? (
+                <>
+                    <div style={{ minHeight: "100vh", width: "100%", padding: "24px" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "24px", alignItems: "start" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                            <h5>Question: {roomData.question}</h5>
+
+                            <p>Language: {roomData.programmingLanguage}</p>
+
+                            <Editor
+                                key={roomId}
+                                height="300px"
+                                language={roomData.programmingLanguage}
+                                defaultValue=""
+                                theme="vs-dark"
+                                onMount={(editor) => handleEditorMount(editor)}
+                            />
+                            <button
+                                className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded position-left mt-10"
+                                onClick={() => handleLeaveRoom()}
+                            >
+                                Leave Room
+                            </button>
+                            </div>
+
+                            <div>
+                                <Chatbox />
+                            </div>
                         </div>
                     </div>
-                ) : loadError ? (
-                    <p>{loadError}</p>
-                ) : roomData ? (
-                    <>
-                        <h5>Question: {roomData.question}</h5>
-
-                        <p>Language: {roomData.programmingLanguage}</p>
-
-                        <Editor
-                            key={roomId}
-                            height="500px"
-                            language={roomData.programmingLanguage}
-                            defaultValue=""
-                            theme="vs-dark"
-                            onMount={(editor) => handleEditorMount(editor)}
-                        />
-                    </>
-                ) : null}
-
-                <button
-                    className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded position-left mt-10"
-                    onClick={() => handleLeaveRoom()}
-                >
-                    Leave Room
-                </button>
-            </div>
+                </>
+            ) : null}
         </>
     )
 }
