@@ -1,54 +1,62 @@
-# User Service (Docker Only)
+# User Service
 
-This service manages user accounts, authentication, and user roles for PeerPrep.
+The User Service manages account registration, authentication, profile updates, and role management for PeerPrep.
+
+## Tech Stack
+
+- Node.js 20 + Express
+- PostgreSQL 16
+- Docker + Docker Compose
+
+## Project Structure
+
+```text
+user-service/
+|- Dockerfile
+|- package.json
+|- src/
+   |- index.js
+   |- controllers/
+   |  |- auth-controller.js
+   |  |- user-controller.js
+   |- routes/
+   |  |- auth-routes.js
+   |  |- user-routes.js
+   |- middleware/
+   |  |- access-control.js
+   |- database/
+   |  |- db.js
+   |  |- init.sql
+   |  |- query.js
+   |- utils/
+      |- view.js
+```
 
 ## Prerequisites
 
-- Docker Desktop (or Docker Engine + Compose plugin)
+- Docker Desktop (recommended), or Docker Engine + Compose plugin
+- A root `.env` file in the repository
 
-## Run the service
 
-From the `user-service` folder:
+## Run with Docker
 
-```bash
-docker compose up --build
-```
-
-Service URLs:
-
-- User service: `http://localhost:3000`
-- Postgres: `localhost:5432`
-
-All configuration is already defined in `docker-compose.yml` (no `.env` needed).
-
-## Reset database (fresh init)
-
-Use this when you want to recreate schema and seed data from scratch:
+Run from the repository root (not from `user-service/`):
 
 ```bash
-docker compose down -v
-docker compose up --build
+docker compose up --build user-service user-postgres
 ```
 
-- `-v` removes the Postgres volume.
-- On next startup, `src/database/init.sql` runs automatically.
+Service endpoints:
 
-## Default root admin (for first login)
+- User Service: `http://localhost:<USER_SERVICE_PORT>`
+- Postgres: `localhost:<DEFAULT_DB_PORT>`
 
-The `user-service` container seeds/updates a root admin user at startup using values in `docker-compose.yml`:
-
-- `ADMIN_EMAIL=admin@example.com`
-- `ADMIN_PASSWORD=admin123`
-- `ADMIN_USERNAME=admin`
-
-Change these in `docker-compose.yml` if needed, then run `docker compose down -v` and `docker compose up --build`.
-
-## Common commands
+### Common Commands
 
 Start in background:
 
 ```bash
-docker compose up -d --build
+docker compose up -d --build user-service user-postgres
 ```
 
 View logs:
@@ -57,70 +65,198 @@ View logs:
 docker compose logs -f user-service
 ```
 
-Stop services:
+Stop:
 
 ```bash
 docker compose down
 ```
 
-## API quick reference
+Reset DB and re-run schema:
 
-Base URL: `http://localhost:3000`
+```bash
+docker compose down -v
+docker compose up --build user-service user-postgres
+```
 
-### Auth
+## Root Admin Initialization
 
-- `POST /auth/login`
-  - Body:
-    ```json
-    {
-      "email": "admin@example.com",
-      "password": "admin123"
-    }
-    ```
-  - Returns JWT token.
+On startup, the service attempts to create a `root-admin` user from:
 
-- `GET /auth/internal/role-check`
-  - Header: `Authorization: Bearer <token>`
-  - Returns role for authenticated user.
+- `ADMIN_EMAIL`
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
 
-### Users
+Important behavior:
 
-- `POST /users`
-  - Create user
-  - Body:
-    ```json
-    {
-      "email": "user@example.com",
-      "username": "user1",
-      "password": "password123"
-    }
-    ```
+- If the admin email already exists, the service leaves that user unchanged.
+- To force re-initialization from `init.sql` and startup logic, reset volumes with `docker compose down -v`.
 
-- `GET /users/me`
-  - Header: `Authorization: Bearer <token>`
+## Run Locally (Without Docker for API)
 
-- `PATCH /users/me`
-  - Header: `Authorization: Bearer <token>`
-  - Body:
-    ```json
-    {
-      "username": "newName"
-    }
-    ```
+You can run only PostgreSQL in Docker and run the API locally.
 
-- `GET /users/by-email/:email` (root admin only)
-  - Header: `Authorization: Bearer <token>`
+1. Start user Postgres container from repository root:
 
-- `PATCH /users/:email/role` (root admin only)
-  - Header: `Authorization: Bearer <token>`
-  - Body:
-    ```json
-    {
-      "role": "user"
-    }
-    ```
+```bash
+docker compose up -d user-postgres
+```
+
+2. In `user-service/`, install dependencies:
+
+```bash
+npm install
+```
+
+3. Export environment variables in your shell so `src/index.js` can read DB and JWT settings.
+
+4. Start the API:
+
+```bash
+npm run dev
+# or
+npm start
+```
+
+## API Reference
+
+Base URL: `http://localhost:<USER_SERVICE_PORT>`
+
+### API Summary
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| `POST` | `/auth/login` | Public | Authenticate a user and return a JWT token. |
+| `GET` | `/auth/internal/role-check` | Authenticated | Return the authenticated user's role. |
+| `POST` | `/users` | Public | Create a new user account. |
+| `GET` | `/users/me` | Authenticated | Retrieve the authenticated user's profile. |
+| `PATCH` | `/users/me` | Authenticated | Update the authenticated user's profile fields. |
+| `PATCH` | `/users/me/password` | Authenticated | Change the authenticated user's password. |
+| `DELETE` | `/users/me` | Authenticated | Delete the authenticated user's account (not allowed for `root-admin`). |
+| `GET` | `/users/by-email/:email` | Authenticated | Retrieve a user profile by email. |
+| `GET` | `/users/all` | Root Admin | Retrieve all users (latest first). |
+| `PATCH` | `/users/:email/role` | Root Admin | Update a user's role to `user`, `admin`, or `root-admin`. |
+
+### Auth Routes
+
+`POST /auth/login`
+
+- Request body:
+
+```json
+{
+  "email": "admin@example.com",
+  "password": "admin123"
+}
+```
+
+- Success response:
+
+```json
+{
+  "token": "<jwt-token>"
+}
+```
+
+`GET /auth/internal/role-check`
+
+- Header: `Authorization: Bearer <jwt-token>`
+- Success response:
+
+```json
+{
+  "role": "user"
+}
+```
+
+### User Routes
+
+`POST /users` (Public)
+
+- Creates a new user.
+- Password policy: at least 8 chars, with uppercase, lowercase, and digit.
+
+Request:
+
+```json
+{
+  "email": "user@example.com",
+  "username": "user1",
+  "password": "Password123"
+}
+```
+
+`GET /users/me` (Authenticated)
+
+- Header: `Authorization: Bearer <jwt-token>`
+- Returns profile data.
+
+`PATCH /users/me` (Authenticated)
+
+- Header: `Authorization: Bearer <jwt-token>`
+- Request body requires `username` and may include optional fields:
+
+```json
+{
+  "username": "newName",
+  "preferred_language": "TypeScript",
+  "topics_of_interest": ["Trees", "DP"]
+}
+```
+
+`PATCH /users/me/password` (Authenticated)
+
+- Header: `Authorization: Bearer <jwt-token>`
+
+```json
+{
+  "current_password": "OldPassword123",
+  "new_password": "NewPassword123"
+}
+```
+
+`DELETE /users/me` (Authenticated)
+
+- Header: `Authorization: Bearer <jwt-token>`
+- `root-admin` users are blocked from self-deletion.
+
+`GET /users/by-email/:email` (Authenticated)
+
+- Header: `Authorization: Bearer <jwt-token>`
+- Returns user profile for the given email.
+
+`GET /users/all` (Root Admin only)
+
+- Header: `Authorization: Bearer <jwt-token>`
+- Returns all users sorted by creation time (latest first).
+
+`PATCH /users/:email/role` (Root Admin only)
+
+- Header: `Authorization: Bearer <jwt-token>`
+
+```json
+{
+  "role": "admin"
+}
+```
+
+- Valid roles: `user`, `admin`, `root-admin`.
+
+## Response Shape
+
+Most user endpoints return the mapped view below (no password hash):
+
+```json
+{
+  "email": "user@example.com",
+  "username": "user1",
+  "access_role": "user",
+  "preferred_language": "JavaScript",
+  "topics_of_interest": ["Arrays", "Graphs"],
+  "created_at": "2026-03-26T10:00:00.000Z"
+}
+```
 
 ## Notes
 
-- JWT secret and DB credentials are set in `docker-compose.yml`.
-- If login fails after changing admin credentials, reset with `docker compose down -v` and restart.
+- `init.sql` creates the `users` table and default columns.
+- The service does not currently expose a `/health` endpoint.
