@@ -1,5 +1,5 @@
 import { Send, MessageSquare } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 
 type ChatMessage = {
     id: string
@@ -11,25 +11,14 @@ type ChatMessage = {
 type ChatboxProps = {
     roomId: string | null
     wsBaseUrl: string
+    username: string
     initialMessages: ChatMessage[]
 }
 
-export default function Chatbox({ roomId, wsBaseUrl, initialMessages }: ChatboxProps) {
+export default function Chatbox({ roomId, wsBaseUrl, initialMessages, username }: ChatboxProps) {
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
     const [draft, setDraft] = useState("")
     const [socket, setSocket] = useState<WebSocket | null>(null)
-
-    // Run this only on initial rendering so that the usrrname doesnt change on every render
-    const username = useMemo(() => {
-        const existing = localStorage.getItem("peerprep_chat_username")
-        if (existing) {
-            return existing
-        }
-
-        const generated = `User-${Math.floor(Math.random() * 10000)}`
-        localStorage.setItem("peerprep_chat_username", generated)
-        return generated
-    }, [])
 
     useEffect(() => {
         setMessages(initialMessages)

@@ -82,7 +82,7 @@ function createYjsServer({ port, redisClient }) {
             return;
         }
 
-        if (namespace == 'yjs') {
+        if (namespace === 'yjs') {
             console.log(`New Yjs connection for room: ${roomId}`);
 
             if (!yjsRooms[roomId]) {
@@ -114,6 +114,8 @@ function createYjsServer({ port, redisClient }) {
                 console.error(`Yjs WS error in room ${roomId}:`, err);
                 room.delete(ws);
             });
+
+            return;
         }
 
         ws.close(1008, 'Unsupported WebSocket namespace');
