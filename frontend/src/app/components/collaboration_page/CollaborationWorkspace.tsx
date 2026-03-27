@@ -28,9 +28,11 @@ export function CollaborationWorkspace() {
     { id: 2, name: "John Wong Zhian", status: "online" },
   ];
 
-  const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-  const wsBaseUrl = import.meta.env.VITE_YJS_WS_URL || "ws://localhost:8081/yjs";
-  const chatWsBaseUrl = import.meta.env.VITE_CHAT_WS_URL || "ws://localhost:8081/chat";
+  const baseApiUrl = import.meta.env.VITE_API_URL || "/api";
+  const apiBaseUrl = `${baseApiUrl.replace(/\/$/, "")}/collab`;
+  const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+  const wsBaseUrl = import.meta.env.VITE_YJS_WS_URL || `${wsScheme}://${window.location.host}/ws/yjs`;
+  const chatWsBaseUrl = import.meta.env.VITE_CHAT_WS_URL || `${wsScheme}://${window.location.host}/ws/chat`;
 
   const [roomData, setRoomData] = useState<RoomData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,22 +64,17 @@ export function CollaborationWorkspace() {
       try {
         setIsLoading(true);
         setLoadError(null);
-        // const res = await fetch(`${apiBaseUrl}/room/${roomId}`);
-
-        // if (!res.ok) {
-        //   throw new Error("Room not found");
-        // }
-
-        // const data = (await res.json()) as RoomData;
-        // setRoomData(data);
-        setRoomData({
-            question: "ThreeSum",
-            programmingLanguage: "JavaScript",
-            chatLog: [
-                { id: "1", user: "John Wong Zhian", message: "Let's start with the brute force approach", timestamp: Date.now() - 60000 },
-                { id: "2", user: "You", message: "Sounds good! I'll work on the nested loops", timestamp: Date.now() - 30000 },
-            ]
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${apiBaseUrl}/room/${roomId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
+
+        if (!res.ok) {
+          throw new Error("Room not found");
+        }
+
+        const data = (await res.json()) as RoomData;
+        setRoomData(data);
 
       } catch (err) {
         console.error("Failed to fetch room:", err);
@@ -159,7 +156,7 @@ export function CollaborationWorkspace() {
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <h2 className="text-xl font-semibold text-gray-900">ThreeSum</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Collaboration Problem</h2>
               <Badge className="bg-green-100 text-green-800 border border-green-300">Easy</Badge>
               <Badge variant="secondary" className="border border-gray-300">Arrays</Badge>
               <Badge variant="outline" className="border border-orange-300 bg-orange-50 text-orange-700">
@@ -223,7 +220,7 @@ export function CollaborationWorkspace() {
                 language={roomData.programmingLanguage}
                 defaultValue=""
                 theme="vs-dark"
-                onMount={(editor) => handleEditorMount(editor)}
+                onMount={(editor: any) => handleEditorMount(editor)}
               />
             </div>
           </div>

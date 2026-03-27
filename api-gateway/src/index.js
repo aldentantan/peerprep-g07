@@ -7,12 +7,14 @@ import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import questionRoutes from './routes/questionRoutes.js';
 import matchingRoutes from './routes/matchingRoutes.js';
+import collaborationRoutes from './routes/collaborationRoutes.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3004;
 const MATCHING_SERVICE_URL = process.env.MATCHING_SERVICE_URL || 'http://localhost:3002';
+const COLLAB_WS_URL = process.env.COLLAB_WS_URL || 'ws://localhost:8081';
 
 app.use(cors());
 app.use(express.json());
@@ -33,14 +35,32 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/match', matchingRoutes);
+app.use('/api/collab', collaborationRoutes);
 
 // WebSocket proxy to matching service
-const wsProxy = createProxyMiddleware({
+const matchingWsProxy = createProxyMiddleware({
   target: MATCHING_SERVICE_URL,
   changeOrigin: true,
   ws: true,
 });
-app.use('/ws', wsProxy);
+
+const collabYjsWsProxy = createProxyMiddleware({
+  target: COLLAB_WS_URL,
+  changeOrigin: true,
+  ws: true,
+  pathRewrite: { '^/ws/yjs': '/yjs' },
+});
+
+const collabChatWsProxy = createProxyMiddleware({
+  target: COLLAB_WS_URL,
+  changeOrigin: true,
+  ws: true,
+  pathRewrite: { '^/ws/chat': '/chat' },
+});
+
+app.use('/ws/match', matchingWsProxy);
+app.use('/ws/yjs', collabYjsWsProxy);
+app.use('/ws/chat', collabChatWsProxy);
 
 // 404 handler
 app.use((req, res) => {
@@ -55,10 +75,14 @@ app.use((err, req, res, next) => {
 
 const server = http.createServer(app);
 
-// Proxy WebSocket upgrade requests to matching service
+// Proxy WebSocket upgrade requests
 server.on('upgrade', (req, socket, head) => {
-  if (req.url?.startsWith('/ws')) {
-    wsProxy.upgrade(req, socket, head);
+  if (req.url?.startsWith('/ws/yjs')) {
+    collabYjsWsProxy.upgrade(req, socket, head);
+  } else if (req.url?.startsWith('/ws/chat')) {
+    collabChatWsProxy.upgrade(req, socket, head);
+  } else if (req.url?.startsWith('/ws/match')) {
+    matchingWsProxy.upgrade(req, socket, head);
   } else {
     socket.destroy();
   }
@@ -71,5 +95,8 @@ server.listen(PORT, () => {
   console.log(`             POST http://localhost:${PORT}/api/auth/login`);
   console.log(`  Users:     GET  http://localhost:${PORT}/api/users/me`);
   console.log(`  Questions: GET  http://localhost:${PORT}/api/questions`);
+  console.log(`  Collab:    GET  http://localhost:${PORT}/api/collab/room/:roomId`);
   console.log(`  Matching:  WS   ws://localhost:${PORT}/ws/match`);
+  console.log(`  Yjs:       WS   ws://localhost:${PORT}/ws/yjs/:roomId`);
+  console.log(`  Chat:      WS   ws://localhost:${PORT}/ws/chat/:roomId`);
 });

@@ -1,0 +1,29 @@
+import { Router } from 'express';
+import axios from 'axios';
+import dotenv from 'dotenv';
+import { verifyToken } from '../middleware/authMiddleware.js';
+
+dotenv.config();
+
+const router = Router();
+const COLLAB_SERVICE_URL = process.env.COLLAB_SERVICE_URL || 'http://localhost:3003';
+
+// GET /api/collab/room/:roomId → collaboration-service GET /room/:roomId
+router.get('/room/:roomId', verifyToken, async (req, res) => {
+  try {
+    const response = await axios.get(`${COLLAB_SERVICE_URL}/room/${req.params.roomId}`);
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+    return res.status(500).json({ error: 'Collaboration service unavailable' });
+  }
+});
+
+// Health check
+router.get('/', (req, res) => {
+  res.status(200).json({ message: 'Collaboration routes are up' });
+});
+
+export default router;

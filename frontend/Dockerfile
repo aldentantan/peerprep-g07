@@ -9,9 +9,15 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Add env variable for API URL
+# Add env variables
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
+
+ARG VITE_YJS_WS_URL
+ENV VITE_YJS_WS_URL=${VITE_YJS_WS_URL}
+
+ARG VITE_CHAT_WS_URL
+ENV VITE_CHAT_WS_URL=${VITE_CHAT_WS_URL}
 
 # Build the application
 RUN npm run build

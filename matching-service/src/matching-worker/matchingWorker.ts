@@ -2,7 +2,10 @@ import { TOPICS, DIFFICULTIES, LANGUAGES } from "../types";
 import { toQueueKey } from "../utils";
 import { randomUUID } from 'crypto';
 import { redis } from "../redis/redisClient";
+import { collabRedis } from "../redis/collabRedisClient";
 import { Topic, Difficulty, Language } from "../types";
+
+const QUESTION_SERVICE_URL = process.env.QUESTION_SERVICE_URL || 'http://localhost:3001';
 
 // TODO: Create a set of active queue keys in Redis and iterate through and poll only active queue keys
 function pollAllQueues() {
@@ -49,6 +52,31 @@ async function tryMatch(topic: Topic, difficulty: Difficulty, language: Language
   console.log(`Publishing match event: ${matchEvent}`);
   await redis.publish("match.events", matchEvent);
   console.log(`Matched ${user1Id} and ${user2Id} into room ${roomId}`);
+
+  // Create room data in collab Redis so collaboration service can serve it
+  try {
+    // Fetch a random question matching the topic and difficulty
+    const capDifficulty = difficulty.charAt(0).toUpperCase() + difficulty.slice(1); // "easy" -> "Easy"
+    const res = await fetch(
+      `${QUESTION_SERVICE_URL}/questions?topics=${encodeURIComponent(topic)}&difficulty=${encodeURIComponent(capDifficulty)}`
+    );
+    let questionText = `Solve a ${difficulty} ${topic} problem.`;
+    if (res.ok) {
+      const data = await res.json();
+      if (data.questions && data.questions.length > 0) {
+        const pick = data.questions[Math.floor(Math.random() * data.questions.length)];
+        questionText = `${pick.title}\n\n${pick.description}`;
+      }
+    }
+
+    await collabRedis.hset(`room:${roomId}`, {
+      question: questionText,
+      programmingLanguage: language,
+    });
+    console.log(`Room ${roomId} created in collab Redis`);
+  } catch (err) {
+    console.error(`Failed to create room ${roomId} in collab Redis:`, err);
+  }
 }
 
 export { pollAllQueues };
