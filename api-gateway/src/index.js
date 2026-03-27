@@ -1,14 +1,18 @@
 import dotenv from 'dotenv';
 import express from 'express';
+import http from 'http';
 import cors from 'cors';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import questionRoutes from './routes/questionRoutes.js';
+import matchingRoutes from './routes/matchingRoutes.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3004;
+const MATCHING_SERVICE_URL = process.env.MATCHING_SERVICE_URL || 'http://localhost:3002';
 
 app.use(cors());
 app.use(express.json());
@@ -28,6 +32,15 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/questions', questionRoutes);
+app.use('/api/match', matchingRoutes);
+
+// WebSocket proxy to matching service
+const wsProxy = createProxyMiddleware({
+  target: MATCHING_SERVICE_URL,
+  changeOrigin: true,
+  ws: true,
+});
+app.use('/ws', wsProxy);
 
 // 404 handler
 app.use((req, res) => {
@@ -40,11 +53,23 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+
+// Proxy WebSocket upgrade requests to matching service
+server.on('upgrade', (req, socket, head) => {
+  if (req.url?.startsWith('/ws')) {
+    wsProxy.upgrade(req, socket, head);
+  } else {
+    socket.destroy();
+  }
+});
+
+server.listen(PORT, () => {
   console.log(`API Gateway running on port ${PORT}`);
   console.log(`  Health:    GET  http://localhost:${PORT}/api/health`);
   console.log(`  Auth:      POST http://localhost:${PORT}/api/auth/signup`);
   console.log(`             POST http://localhost:${PORT}/api/auth/login`);
   console.log(`  Users:     GET  http://localhost:${PORT}/api/users/me`);
   console.log(`  Questions: GET  http://localhost:${PORT}/api/questions`);
+  console.log(`  Matching:  WS   ws://localhost:${PORT}/ws/match`);
 });
