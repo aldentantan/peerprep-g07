@@ -19,6 +19,11 @@ export interface QuestionFilters {
   difficulty?: string;
 }
 
+export interface TopicsResponse {
+  count: number;
+  topics: string[];
+}
+
 export interface CreateQuestionData {
   title: string;
   description: string;
@@ -44,6 +49,11 @@ export async function getQuestions(filters?: QuestionFilters): Promise<{ count: 
 
 export async function getQuestionById(id: number): Promise<{ question: Question }> {
   const response = await apiClient.get(`/questions/${id}`);
+  return response.data;
+}
+
+export async function getTopics(): Promise<TopicsResponse> {
+  const response = await apiClient.get('/questions/topics');
   return response.data;
 }
 

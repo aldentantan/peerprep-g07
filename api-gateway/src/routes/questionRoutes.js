@@ -24,6 +24,20 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/questions/topics → question-service GET /questions/topics (public)
+// Fetches all unique topics from the question service
+router.get('/topics', async (req, res) => {
+  try {
+    const response = await axios.get(`${QUESTION_SERVICE_URL}/questions/topics`);
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+    return res.status(500).json({ error: 'Question service unavailable' });
+  }
+});
+
 // GET /api/questions/:id → question-service GET /questions/:id (public) 
 // Fetches a specific question by ID
 router.get('/:id', async (req, res) => {

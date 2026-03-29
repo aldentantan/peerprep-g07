@@ -186,6 +186,34 @@ const getQuestions = async (req, res) => {
 };
 
 // ────────────────────────────────────────────────────────────
+// GET /questions/topics  (Public)
+// Returns all unique topics currently present in the DB.
+// ────────────────────────────────────────────────────────────
+const getTopics = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT DISTINCT topic
+         FROM (
+           SELECT unnest(topics) AS topic
+           FROM questions
+         ) AS topic_list
+        WHERE topic IS NOT NULL AND topic <> ''
+        ORDER BY topic ASC`
+    );
+
+    const topics = result.rows.map((row) => row.topic);
+
+    return res.status(200).json({
+      count: topics.length,
+      topics,
+    });
+  } catch (err) {
+    console.error('[getTopics]', err);
+    return res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+};
+
+// ────────────────────────────────────────────────────────────
 // GET /questions/:id  (Public)
 // ────────────────────────────────────────────────────────────
 const getQuestionById = async (req, res) => {
@@ -397,6 +425,7 @@ const deleteQuestion = async (req, res) => {
 export {
   createQuestion,
   getQuestions,
+  getTopics,
   getQuestionById,
   updateQuestion,
   deleteQuestion,

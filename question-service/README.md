@@ -239,6 +239,24 @@ http://localhost:3001
 
 ---
 
+### Get All Topics
+
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/questions/topics` | None |
+
+Returns every unique topic currently present in the question database, sorted alphabetically.
+
+**Response 200**
+```json
+{
+  "count": 4,
+  "topics": ["Algorithms", "Arrays", "Data Structures", "Strings"]
+}
+```
+
+---
+
 ### Get All Questions
 
 | Method | Path | Auth |
@@ -440,6 +458,9 @@ docker compose up
 ```bash
 # Health check
 curl http://localhost:3001/health
+
+# Get all topics
+curl http://localhost:3001/questions/topics
 
 # Get all questions
 curl http://localhost:3001/questions
