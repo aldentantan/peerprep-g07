@@ -72,6 +72,9 @@ async function tryMatch(topic: Topic, difficulty: Difficulty, language: Language
     await collabRedis.hset(`room:${roomId}`, {
       question: questionText,
       programmingLanguage: language,
+      questionTopic: topic,
+      questionDifficulty: difficulty,
+      participantUserIds: JSON.stringify([user1Id, user2Id]),
     });
     console.log(`Room ${roomId} created in collab Redis`);
   } catch (err) {

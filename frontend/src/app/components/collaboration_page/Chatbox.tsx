@@ -81,24 +81,37 @@ export default function Chatbox({ roomId, wsBaseUrl, initialMessages, username }
     };
 
     return (
-        <div className="border-4 border-gray-300 rounded-lg p-4 bg-white space-y-3 lg:col-span-1">
+        <div className="border-4 border-gray-300 rounded-lg p-4 bg-white space-y-3 lg:col-span-1 lg:h-full flex flex-col min-h-[400px]">
             <div className="flex items-center gap-2 text-gray-800 pb-2 border-b-2 border-gray-200">
                 <MessageSquare className="h-5 w-5" />
                 <h3 className="font-semibold">Chat</h3>
             </div>
 
-            <div className="space-y-3 min-h-[400px] max-h-[500px] overflow-y-auto">
-                {messages.map((msg) => (
-                    <div key={msg.id} className="space-y-1">
-                        <div className="flex items-baseline gap-2">
-                            <span className="font-medium text-sm text-gray-900">{msg.user}</span>
-                            <span className="text-xs text-gray-500">{formatTime(msg.timestamp)}</span>
+            <div className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
+                {messages.map((msg) => {
+                    const isOwnMessage = msg.user === username;
+
+                    return (
+                        <div
+                            key={msg.id}
+                            className={`space-y-1 flex flex-col ${isOwnMessage ? "items-end" : "items-start"}`}
+                        >
+                            <div className={`flex items-baseline gap-2 ${isOwnMessage ? "justify-end" : "justify-start"}`}>
+                                <span className="font-medium text-sm text-gray-900">{msg.user}</span>
+                                <span className="text-xs text-gray-500">{formatTime(msg.timestamp)}</span>
+                            </div>
+                            <div
+                                className={`border-2 rounded-lg p-2 max-w-[85%] ${
+                                    isOwnMessage ? "border-blue-200 bg-blue-50" : "border-gray-300 bg-gray-50"
+                                }`}
+                            >
+                                <p className={`text-sm ${isOwnMessage ? "text-right text-gray-800" : "text-left text-gray-700"}`}>
+                                    {msg.message}
+                                </p>
+                            </div>
                         </div>
-                        <div className="border-2 border-gray-300 rounded-lg p-2 bg-gray-50">
-                            <p className="text-sm text-gray-700">{msg.message}</p>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             <div className="pt-3 border-t-2 border-gray-200">

@@ -116,7 +116,7 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
-        userId = payload.id || payload.sub || payload.email || "";
+        userId = payload.username || payload.id || payload.sub || payload.email || "";
       } catch {
         // ignore malformed token
       }
@@ -220,10 +220,19 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
 
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const storedRoomId = localStorage.getItem("roomId");
+    if (!storedRoomId) return;
+
+    navigate(`/collaboration?roomId=${encodeURIComponent(storedRoomId)}`);
+  }, [navigate]);
+
   const navigateToCollaboration = () => {
-    if (!matchData) return;
-    localStorage.setItem("roomId", matchData.roomId);
-    navigate(`/collaboration?roomId=${matchData.roomId}`);
+    const targetRoomId = matchData?.roomId || localStorage.getItem("roomId");
+    if (!targetRoomId) return;
+
+    localStorage.setItem("roomId", targetRoomId);
+    navigate(`/collaboration?roomId=${encodeURIComponent(targetRoomId)}`);
   }
 
   // Cleanup WebSocket on unmount

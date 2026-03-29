@@ -11,10 +11,10 @@ async function startServer() {
     const redisClient = createRedisClient();
     await connectRedis(redisClient);
 
-    createMatchingServer({
-        port: MATCHING_WS_PORT,
-        redisClient
-    });
+    // createMatchingServer({
+    //     port: MATCHING_WS_PORT,
+    //     redisClient
+    // });
 
     createYjsServer({
         port: YJS_WS_PORT,

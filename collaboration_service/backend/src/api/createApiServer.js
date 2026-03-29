@@ -23,6 +23,18 @@ function createApiServer(redisClient) {
                 })
                 .filter(Boolean);
 
+            let participantUserIds = [];
+            if (room.participantUserIds) {
+                try {
+                    const parsed = JSON.parse(room.participantUserIds);
+                    if (Array.isArray(parsed)) {
+                        participantUserIds = parsed.filter((item) => typeof item === 'string');
+                    }
+                } catch (err) {
+                    console.error('Invalid participantUserIds in redis:', err);
+                }
+            }
+
             if (!room || !room.question || !room.programmingLanguage) {
                 return res.status(404).json({ error: 'Room not found' });
             }
@@ -30,6 +42,9 @@ function createApiServer(redisClient) {
             return res.json({
                 question: room.question,
                 programmingLanguage: room.programmingLanguage,
+                questionTopic: room.questionTopic,
+                questionDifficulty: room.questionDifficulty,
+                participantUserIds,
                 chatLog
             });
         } catch (err) {

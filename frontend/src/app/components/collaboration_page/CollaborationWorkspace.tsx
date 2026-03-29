@@ -9,6 +9,18 @@ import { useEffect, useMemo, useState } from "react";
 import { MonacoBinding } from "y-monaco";
 import Editor from "@monaco-editor/react";
 
+  const languageMap: Record<string, string> = {
+    "javascript": "JavaScript",
+    "python": "Python",
+    "java": "Java",
+    "cpp": "C++",
+    "typescript": "TypeScript",
+    "go": "Go",
+    "ruby": "Ruby",
+    "csharp": "C#",
+  };
+
+
 type ChatMessage = {
   id: string;
   user: string;
@@ -19,15 +31,27 @@ type ChatMessage = {
 type RoomData = {
   question: string;
   programmingLanguage: string;
+  questionTopic: string;
+  questionDifficulty: string;
+  participantUserIds?: string[];
   chatLog: ChatMessage[];
 };
 
-export function CollaborationWorkspace() {
-  const mockUsers = [
-    { id: 1, name: "You", status: "online" },
-    { id: 2, name: "John Wong Zhian", status: "online" },
-  ];
+type Participant = {
+  id: string;
+  name: string;
+  status: string;
+  isCurrentUser: boolean;
+};
 
+type JwtPayload = {
+  id?: string;
+  sub?: string;
+  email?: string;
+  username?: string;
+};
+
+export function CollaborationWorkspace() {
   const baseApiUrl = import.meta.env.VITE_API_URL || "/api";
   const apiBaseUrl = `${baseApiUrl.replace(/\/$/, "")}/collab`;
   const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
@@ -42,7 +66,28 @@ export function CollaborationWorkspace() {
   const roomId = searchParams.get("roomId");
   const navigate = useNavigate();
 
+  const tokenPayload = useMemo<JwtPayload | null>(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      return null;
+    }
+
+    try {
+      const payloadSegment = token.split(".")[1];
+      const normalized = payloadSegment.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+      return JSON.parse(atob(padded)) as JwtPayload;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const username = useMemo(() => {
+    if (tokenPayload?.username && tokenPayload.username.trim()) {
+      localStorage.setItem("peerprep_username", tokenPayload.username);
+      return tokenPayload.username;
+    }
+
     const existingUser = localStorage.getItem("peerprep_username");
     if (existingUser) {
       return existingUser;
@@ -51,7 +96,55 @@ export function CollaborationWorkspace() {
     const generatedUser = `User-${Math.floor(Math.random() * 10000)}`;
     localStorage.setItem("peerprep_username", generatedUser);
     return generatedUser;
-  }, []);
+  }, [tokenPayload]);
+
+  const currentUserIdentifiers = useMemo(() => {
+    const identifiers = [
+      tokenPayload?.id,
+      tokenPayload?.sub,
+      tokenPayload?.email,
+      tokenPayload?.username,
+      username,
+    ]
+      .map((value) => (value === undefined || value === null ? "" : `${value}`.trim()))
+      .filter((value) => value !== "");
+
+    return new Set(identifiers);
+  }, [tokenPayload, username]);
+
+  const participants = useMemo<Participant[]>(() => {
+    const roomParticipantIds = roomData?.participantUserIds || [];
+    const participantList: Participant[] = [];
+    const addedIds = new Set<string>();
+
+    roomParticipantIds.forEach((participantId) => {
+      if (!participantId || addedIds.has(participantId)) {
+        return;
+      }
+
+      const isCurrentUser = currentUserIdentifiers.has(participantId);
+      const fallbackName = isCurrentUser ? username : participantId;
+
+      participantList.push({
+        id: participantId,
+        name: fallbackName,
+        status: "in room",
+        isCurrentUser,
+      });
+      addedIds.add(participantId);
+    });
+
+    if (!participantList.some((participant) => participant.isCurrentUser)) {
+      participantList.unshift({
+        id: username,
+        name: username,
+        status: "online",
+        isCurrentUser: true,
+      });
+    }
+
+    return participantList;
+  }, [roomData, currentUserIdentifiers, username]);
 
   useEffect(() => {
     if (!roomId) {
@@ -157,23 +250,19 @@ export function CollaborationWorkspace() {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <h2 className="text-xl font-semibold text-gray-900">Collaboration Problem</h2>
-              <Badge className="bg-green-100 text-green-800 border border-green-300">Easy</Badge>
-              <Badge variant="secondary" className="border border-gray-300">Arrays</Badge>
+              <Badge className="bg-green-100 text-green-800 border border-green-300">{roomData.questionDifficulty}</Badge>
+              <Badge variant="secondary" className="border border-gray-300">{roomData.questionTopic}</Badge>
               <Badge variant="outline" className="border border-orange-300 bg-orange-50 text-orange-700">
                 <Radio className="h-3 w-3 mr-1 animate-pulse" />
                 Live Session
               </Badge>
             </div>
             <p className="text-sm text-gray-600">{roomData.question}</p>
-            <p>Language: {roomData.programmingLanguage}</p>
           </div>
-          <Button variant="outline" size="sm" className="border-2 border-gray-300">
-            <Settings className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:items-stretch">
         <div className="border-4 border-gray-300 rounded-lg p-4 bg-white space-y-3 lg:col-span-1">
           <div className="flex items-center gap-2 text-gray-800 pb-2 border-b-2 border-gray-200">
             <Users className="h-5 w-5" />
@@ -181,14 +270,17 @@ export function CollaborationWorkspace() {
           </div>
 
           <div className="space-y-2">
-            {mockUsers.map((user) => (
+            {participants.map((user) => (
               <div key={user.id} className="flex items-center gap-3 p-3 border-2 border-gray-300 rounded-lg bg-gray-50">
                 <div className="w-10 h-10 border-2 border-gray-400 rounded-full flex items-center justify-center bg-white flex-shrink-0">
                   <User className="w-5 h-5 text-gray-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm text-gray-900 truncate">{user.name}</p>
+                    <p className="font-medium text-sm text-gray-900 truncate">
+                      {user.name}
+                      {user.isCurrentUser ? " (You)" : ""}
+                    </p>
                     <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
                   </div>
                   <p className="text-xs text-gray-600">{user.status}</p>
@@ -205,10 +297,7 @@ export function CollaborationWorkspace() {
               <h3 className="font-semibold">Code Editor</h3>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs border border-gray-300">JavaScript</Badge>
-              <Button variant="ghost" size="sm">
-                <Maximize2 className="h-4 w-4" />
-              </Button>
+              <Badge variant="secondary" className="text-xs border border-gray-300">{languageMap[roomData.programmingLanguage]}</Badge>
             </div>
           </div>
 
@@ -216,7 +305,7 @@ export function CollaborationWorkspace() {
             <div className="space-y-2 text-gray-700">
               <Editor
                 key={roomId ?? "default-room"}
-                height="300px"
+                height="400px"
                 language={roomData.programmingLanguage}
                 defaultValue=""
                 theme="vs-dark"
@@ -225,14 +314,14 @@ export function CollaborationWorkspace() {
             </div>
           </div>
         </div>
-      </div>
 
-      <Chatbox
-        roomId={roomId}
-        wsBaseUrl={chatWsBaseUrl}
-        username={username}
-        initialMessages={roomData.chatLog || []}
-      />
+        <Chatbox
+          roomId={roomId}
+          wsBaseUrl={chatWsBaseUrl}
+          username={username}
+          initialMessages={roomData.chatLog || []}
+        />
+      </div>
     </div>
   );
 }
