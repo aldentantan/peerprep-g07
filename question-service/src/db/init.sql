@@ -13,6 +13,18 @@ CREATE TABLE IF NOT EXISTS questions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Stores persistent key-value state for the question service scheduler
+CREATE TABLE IF NOT EXISTS scheduler_state (
+    key   VARCHAR(100) PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Seed the initial skip offset
+INSERT INTO scheduler_state (key, value)
+VALUES ('leetcode_skip', '0')
+ON CONFLICT (key) DO NOTHING;
+
 -- Auto-update updated_at on row update
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
