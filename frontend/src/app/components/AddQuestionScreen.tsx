@@ -14,7 +14,7 @@ import {
   Trash2,
   Info
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { createQuestion } from "@/app/services/questionService";
 
 interface AddQuestionScreenProps {
@@ -28,12 +28,13 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
   const [difficulty, setDifficulty] = useState("Medium");
   const [topic, setTopic] = useState("Arrays");
   const [leetcodeLink, setLeetcodeLink] = useState("");
-  const [imageUploaded, setImageUploaded] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [testCases, setTestCases] = useState([
     { input: "", expectedOutput: "" }
   ]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const difficulties = ["Easy", "Medium", "Hard"];
   const topics = [
@@ -67,6 +68,12 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
     setTestCases(updated);
   };
 
+  const handleImageSelection = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setSelectedImage(file);
+    event.target.value = "";
+  };
+
   const handleSave = async () => {
     setError("");
     if (!title || !description) {
@@ -82,6 +89,7 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
         topics: [topic],
         testCases: testCases.map((tc) => ({ input: tc.input, output: tc.expectedOutput })),
         leetcodeLink: leetcodeLink || undefined,
+        imageFiles: selectedImage ? [selectedImage] : undefined,
       });
       if (onSave) onSave();
       onBack();
@@ -233,20 +241,27 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
               <p className="text-sm text-gray-600">
                 Upload a diagram or visual representation for this question
               </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                className="hidden"
+                onChange={handleImageSelection}
+              />
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                {imageUploaded ? (
+                {selectedImage ? (
                   <div className="space-y-3">
                     <div className="w-20 h-20 mx-auto bg-green-100 rounded-lg flex items-center justify-center">
                       <ImageIcon className="w-10 h-10 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">question-image.png</p>
-                      <p className="text-xs text-gray-500">256 KB</p>
+                      <p className="text-sm font-medium text-gray-900">{selectedImage.name}</p>
+                      <p className="text-xs text-gray-500">{Math.max(1, Math.round(selectedImage.size / 1024))} KB</p>
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setImageUploaded(false)}
+                      onClick={() => setSelectedImage(null)}
                       className="border-2 border-gray-300"
                     >
                       <X className="mr-2 h-4 w-4" />
@@ -261,7 +276,7 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
                     <div>
                       <Button
                         variant="outline"
-                        onClick={() => setImageUploaded(true)}
+                        onClick={() => fileInputRef.current?.click()}
                         className="border-2 border-gray-300"
                       >
                         <Upload className="mr-2 h-4 w-4" />
