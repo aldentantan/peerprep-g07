@@ -30,6 +30,9 @@ type ChatMessage = {
 
 type RoomData = {
   question: string;
+  questionId?: string;
+  questionTitle?: string;
+  questionDescription?: string;
   programmingLanguage: string;
   questionTopic: string;
   questionDifficulty: string;
@@ -51,24 +54,6 @@ type JwtPayload = {
   username?: string;
 };
 
-type QuestionData = {
-  questionTitle: string;
-  questionDescription: string;
-}
-
-const getDeterministicIndex = (seed: string, modulo: number) => {
-  if (modulo <= 0) {
-    return 0;
-  }
-
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  }
-
-  return hash % modulo;
-};
-
 export function CollaborationWorkspace() {
   // Build API/WS base URLs from env with sensible local defaults.
   const baseApiUrl = import.meta.env.VITE_API_URL || "/api";
@@ -81,7 +66,6 @@ export function CollaborationWorkspace() {
   const [roomData, setRoomData] = useState<RoomData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [questionData, setQuestionData] = useState<QuestionData | null>(null);
 
   // Pull roomId from URL query string (?roomId=...).
   const [searchParams] = useSearchParams();
@@ -196,13 +180,15 @@ export function CollaborationWorkspace() {
         const data = (await res.json()) as RoomData;
         setRoomData({
           question: data.question,
+          questionId: data.questionId,
+          questionTitle: data.questionTitle,
+          questionDescription: data.questionDescription,
           programmingLanguage: data.programmingLanguage,
           questionTopic: data.questionTopic.charAt(0).toUpperCase() + data.questionTopic.slice(1).toLowerCase(),
           questionDifficulty: data.questionDifficulty.charAt(0).toUpperCase() + data.questionDifficulty.slice(1).toLowerCase(),
           participantUserIds: data.participantUserIds,
           chatLog: data.chatLog,
         });
-
       } catch (err) {
         console.error("Failed to fetch room:", err);
         setLoadError("Failed to load room data");
@@ -213,65 +199,6 @@ export function CollaborationWorkspace() {
 
     fetchRoom();
   }, [roomId, apiBaseUrl]);
-
-  // Fetch question after room data is loaded.
-  useEffect(() => {
-    const fetchQuestion = async () => {
-      try {
-        if (!roomData?.questionTopic || !roomData?.questionDifficulty) {
-          console.warn("Room data is missing question topic or difficulty, skipping question fetch");
-          return;
-        }
-
-        const baseApiUrl = import.meta.env.VITE_API_URL || "/api";
-        const questionApiUrl = baseApiUrl.replace(/\/$/, "");
-
-        const params = new URLSearchParams({
-          topics: roomData.questionTopic,
-          difficulty: roomData.questionDifficulty,
-        });
-
-        const res = await fetch(`${questionApiUrl}/questions?${params.toString()}`);
-
-        if (!res.ok) {
-          throw new Error("Failed to fetch questions");
-        }
-
-        // Fetches every single question that has the same topic and difficulty
-        // Needs to change so that only fetches 1 random question
-        // question = {"questionId": number,
-        //              "title": string,
-        //              "description": string,
-        //              "constraints": string,
-        //              "testCases": array,
-        //              "leetcodeLink": string,
-        //              "difficulty": string,
-        //              "topics": array,
-        //              "imageUrls": array, 
-        //              "createdAt": timestamp,
-        //              "updatedAt": timestamp,
-        //              "assetWarning": string (optional - only if missing image URLs) }
-        const data = await res.json();
-        if (data.questions && data.questions.length > 0) {
-          const count = data.questions.length;
-          const selectionSeed = roomId || `${roomData.questionTopic}-${roomData.questionDifficulty}`;
-          const selectedIndex = getDeterministicIndex(selectionSeed, count);
-          const question = data.questions[selectedIndex];
-          console.log(`Fetched ${count} questions, selected index ${selectedIndex}`);
-          setQuestionData({
-            questionTitle: question.title,
-            questionDescription: question.description,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to fetch question details:", err);
-      }
-    };
-
-    if (roomData) {
-      fetchQuestion();
-    }
-  }, [roomData, roomId]);
 
   // Attach Yjs + Monaco collaborative binding when editor is mounted.
   const handleEditorMount = (editor: any) => {
@@ -344,7 +271,7 @@ export function CollaborationWorkspace() {
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <h2 className="text-xl font-semibold text-gray-900">{questionData?.questionTitle || "Untitled Question"}</h2>
+              <h2 className="text-xl font-semibold text-gray-900">{roomData.questionTitle}</h2>
               <Badge className="bg-green-100 text-green-800 border border-green-300">
                 {roomData.questionDifficulty}
               </Badge>
@@ -356,7 +283,7 @@ export function CollaborationWorkspace() {
                 Live Session
               </Badge>
             </div>
-            <p className="text-sm text-gray-600">{questionData?.questionDescription || "No question description available."}</p>
+            <p className="text-sm text-gray-600">{roomData.questionDescription}</p>
           </div>
         </div>
       </div>

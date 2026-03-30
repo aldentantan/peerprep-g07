@@ -4,9 +4,6 @@ import { redis } from "../redis/redisClient";
 import { ACTIVE_QUEUES_KEY, QUEUED_USERS_KEY } from "../redis/redisKeys";
 import { DIFFICULTIES, Difficulty, Language, LANGUAGES, Topic, TOPICS } from "../types";
 import { toQueueKey } from "../utils";
-
-const QUESTION_SERVICE_URL =
-  process.env.QUESTION_SERVICE_URL || "http://localhost:3001";
 const RELAXED_MATCH_WAIT_MS = 20 * 1000;
 
 const DIFFICULTY_RANK: Record<Difficulty, number> = {
@@ -149,23 +146,7 @@ async function publishMatchAndCreateRoom(
   const roomId = randomUUID();
 
   try {
-    const capDifficulty =
-      difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
-    const res = await fetch(
-      `${QUESTION_SERVICE_URL}/questions?topics=${encodeURIComponent(topic)}&difficulty=${encodeURIComponent(capDifficulty)}`,
-    );
-    let questionText = `Solve a ${difficulty} ${topic} problem.`;
-    if (res.ok) {
-      const data = await res.json();
-      if (data.questions && data.questions.length > 0) {
-        const pick =
-          data.questions[Math.floor(Math.random() * data.questions.length)];
-        questionText = `${pick.title}\n\n${pick.description}`;
-      }
-    }
-
     await collabRedis.hset(`room:${roomId}`, {
-      question: questionText,
       programmingLanguage: language,
       questionTopic: topic,
       questionDifficulty: difficulty,
