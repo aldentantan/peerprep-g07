@@ -97,6 +97,7 @@ services:
     container_name: collaboration-service
     environment:
       - REDIS_URL=redis://collab-redis:6379
+      - QUESTION_SERVICE_URL=http://question-service:${QUESTION_SERVICE_PORT}
     ports:
       - "${COLLAB_SERVICE_PORT}:3000"
       - "${COLLAB_YJS_WS_PORT}:8081"

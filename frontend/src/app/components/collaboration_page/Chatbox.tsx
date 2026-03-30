@@ -1,5 +1,5 @@
 import { Send, MessageSquare } from "lucide-react";
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
 
@@ -16,12 +16,44 @@ type ChatboxProps = {
     wsBaseUrl: string;
     username: string;
     initialMessages: ChatMessage[];
+    onUserLeft?: (username: string) => void;
 };
 
-export default function Chatbox({ roomId, wsBaseUrl, initialMessages, username }: ChatboxProps) {
+export type ChatboxHandle = {
+    sendUserLeft: (username: string) => void;
+    closeSocket: () => void;
+};
+
+const Chatbox = forwardRef<ChatboxHandle, ChatboxProps>(function Chatbox(
+    { roomId, wsBaseUrl, initialMessages, username, onUserLeft }: ChatboxProps,
+    ref,
+) {
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
     const [draft, setDraft] = useState("");
-    const [socket, setSocket] = useState<WebSocket | null>(null);
+    const socketRef = useRef<WebSocket | null>(null);
+
+    useImperativeHandle(ref, () => ({
+        sendUserLeft: (departingUsername: string) => {
+            const socket = socketRef.current;
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                return;
+            }
+
+            socket.send(
+                JSON.stringify({
+                    type: "user_left",
+                    user: departingUsername,
+                }),
+            );
+        },
+        closeSocket: () => {
+            const socket = socketRef.current;
+            if (socket && socket.readyState !== WebSocket.CLOSED) {
+                socket.close();
+            }
+            socketRef.current = null;
+        },
+    }), []);
 
     useEffect(() => {
         setMessages(initialMessages);
@@ -33,13 +65,15 @@ export default function Chatbox({ roomId, wsBaseUrl, initialMessages, username }
         }
 
         const ws = new WebSocket(`${wsBaseUrl}/${roomId}`);
-        setSocket(ws);
+        socketRef.current = ws;
 
         ws.onmessage = (event) => {
             try {
                 const payload = JSON.parse(event.data);
                 if (payload.type === "chat_message" && payload.payload) {
                     setMessages((prev) => [...prev, payload.payload as ChatMessage]);
+                } else if (payload.type === "user_left" && payload.payload?.user) {
+                    onUserLeft?.(`${payload.payload.user}`);
                 }
             } catch (err) {
                 console.error("Failed to parse chat message:", err);
@@ -52,12 +86,15 @@ export default function Chatbox({ roomId, wsBaseUrl, initialMessages, username }
 
         return () => {
             ws.close();
-            setSocket(null);
+            if (socketRef.current === ws) {
+                socketRef.current = null;
+            }
         };
-    }, [roomId, wsBaseUrl]);
+    }, [roomId, wsBaseUrl, onUserLeft]);
 
     const handleSend = () => {
         const trimmed = draft.trim();
+        const socket = socketRef.current;
         if (!trimmed || !socket || socket.readyState !== WebSocket.OPEN) {
             return;
         }
@@ -135,4 +172,8 @@ export default function Chatbox({ roomId, wsBaseUrl, initialMessages, username }
             </div>
         </div>
     );
-}
+});
+
+Chatbox.displayName = "Chatbox";
+
+export default Chatbox;
