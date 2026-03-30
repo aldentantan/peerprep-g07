@@ -1,6 +1,6 @@
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
-import { Code2, Users, LogOut, User, Settings, Maximize2, Radio } from "lucide-react";
+import { Code2, Users, LogOut, User, Radio } from "lucide-react";
 import Chatbox from "./Chatbox";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import * as Y from "yjs";
@@ -9,16 +9,16 @@ import { useEffect, useMemo, useState } from "react";
 import { MonacoBinding } from "y-monaco";
 import Editor from "@monaco-editor/react";
 
-  const languageMap: Record<string, string> = {
-    "javascript": "JavaScript",
-    "python": "Python",
-    "java": "Java",
-    "cpp": "C++",
-    "typescript": "TypeScript",
-    "go": "Go",
-    "ruby": "Ruby",
-    "csharp": "C#",
-  };
+const languageMap: Record<string, string> = {
+  "javascript": "JavaScript",
+  "python": "Python",
+  "java": "Java",
+  "cpp": "C++",
+  "typescript": "TypeScript",
+  "go": "Go",
+  "ruby": "Ruby",
+  "csharp": "C#",
+};
 
 
 type ChatMessage = {
@@ -51,21 +51,44 @@ type JwtPayload = {
   username?: string;
 };
 
+type QuestionData = {
+  questionTitle: string;
+  questionDescription: string;
+}
+
+const getDeterministicIndex = (seed: string, modulo: number) => {
+  if (modulo <= 0) {
+    return 0;
+  }
+
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+
+  return hash % modulo;
+};
+
 export function CollaborationWorkspace() {
+  // Build API/WS base URLs from env with sensible local defaults.
   const baseApiUrl = import.meta.env.VITE_API_URL || "/api";
   const apiBaseUrl = `${baseApiUrl.replace(/\/$/, "")}/collab`;
   const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
   const wsBaseUrl = import.meta.env.VITE_YJS_WS_URL || `${wsScheme}://${window.location.host}/ws/yjs`;
   const chatWsBaseUrl = import.meta.env.VITE_CHAT_WS_URL || `${wsScheme}://${window.location.host}/ws/chat`;
 
+  // Screen state for room data loading and failure handling.
   const [roomData, setRoomData] = useState<RoomData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [questionData, setQuestionData] = useState<QuestionData | null>(null);
 
+  // Pull roomId from URL query string (?roomId=...).
   const [searchParams] = useSearchParams();
   const roomId = searchParams.get("roomId");
   const navigate = useNavigate();
 
+  // Decode the JWT payload once so identity fields can be reused.
   const tokenPayload = useMemo<JwtPayload | null>(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -82,6 +105,7 @@ export function CollaborationWorkspace() {
     }
   }, []);
 
+  // Prefer username from JWT, then local storage, then generated fallback.
   const username = useMemo(() => {
     if (tokenPayload?.username && tokenPayload.username.trim()) {
       localStorage.setItem("peerprep_username", tokenPayload.username);
@@ -98,6 +122,7 @@ export function CollaborationWorkspace() {
     return generatedUser;
   }, [tokenPayload]);
 
+  // Keep a set of identifiers to reliably detect "current user" in participant IDs.
   const currentUserIdentifiers = useMemo(() => {
     const identifiers = [
       tokenPayload?.id,
@@ -112,6 +137,7 @@ export function CollaborationWorkspace() {
     return new Set(identifiers);
   }, [tokenPayload, username]);
 
+  // Build the participant list from room data with de-duplication and self-labeling.
   const participants = useMemo<Participant[]>(() => {
     const roomParticipantIds = roomData?.participantUserIds || [];
     const participantList: Participant[] = [];
@@ -146,6 +172,7 @@ export function CollaborationWorkspace() {
     return participantList;
   }, [roomData, currentUserIdentifiers, username]);
 
+  // Fetch room metadata and chat history from collaboration API whenever room changes.
   useEffect(() => {
     if (!roomId) {
       setIsLoading(false);
@@ -167,7 +194,14 @@ export function CollaborationWorkspace() {
         }
 
         const data = (await res.json()) as RoomData;
-        setRoomData(data);
+        setRoomData({
+          question: data.question,
+          programmingLanguage: data.programmingLanguage,
+          questionTopic: data.questionTopic.charAt(0).toUpperCase() + data.questionTopic.slice(1).toLowerCase(),
+          questionDifficulty: data.questionDifficulty.charAt(0).toUpperCase() + data.questionDifficulty.slice(1).toLowerCase(),
+          participantUserIds: data.participantUserIds,
+          chatLog: data.chatLog,
+        });
 
       } catch (err) {
         console.error("Failed to fetch room:", err);
@@ -180,6 +214,66 @@ export function CollaborationWorkspace() {
     fetchRoom();
   }, [roomId, apiBaseUrl]);
 
+  // Fetch question after room data is loaded.
+  useEffect(() => {
+    const fetchQuestion = async () => {
+      try {
+        if (!roomData?.questionTopic || !roomData?.questionDifficulty) {
+          console.warn("Room data is missing question topic or difficulty, skipping question fetch");
+          return;
+        }
+
+        const baseApiUrl = import.meta.env.VITE_API_URL || "/api";
+        const questionApiUrl = baseApiUrl.replace(/\/$/, "");
+
+        const params = new URLSearchParams({
+          topics: roomData.questionTopic,
+          difficulty: roomData.questionDifficulty,
+        });
+
+        const res = await fetch(`${questionApiUrl}/questions?${params.toString()}`);
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch questions");
+        }
+
+        // Fetches every single question that has the same topic and difficulty
+        // Needs to change so that only fetches 1 random question
+        // question = {"questionId": number,
+        //              "title": string,
+        //              "description": string,
+        //              "constraints": string,
+        //              "testCases": array,
+        //              "leetcodeLink": string,
+        //              "difficulty": string,
+        //              "topics": array,
+        //              "imageUrls": array, 
+        //              "createdAt": timestamp,
+        //              "updatedAt": timestamp,
+        //              "assetWarning": string (optional - only if missing image URLs) }
+        const data = await res.json();
+        if (data.questions && data.questions.length > 0) {
+          const count = data.questions.length;
+          const selectionSeed = roomId || `${roomData.questionTopic}-${roomData.questionDifficulty}`;
+          const selectedIndex = getDeterministicIndex(selectionSeed, count);
+          const question = data.questions[selectedIndex];
+          console.log(`Fetched ${count} questions, selected index ${selectedIndex}`);
+          setQuestionData({
+            questionTitle: question.title,
+            questionDescription: question.description,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch question details:", err);
+      }
+    };
+
+    if (roomData) {
+      fetchQuestion();
+    }
+  }, [roomData, roomId]);
+
+  // Attach Yjs + Monaco collaborative binding when editor is mounted.
   const handleEditorMount = (editor: any) => {
     if (!roomId) {
       return;
@@ -197,6 +291,7 @@ export function CollaborationWorkspace() {
     });
   };
 
+  // Leave room and clear local room marker used for quick re-entry.
   const handleLeaveRoom = () => {
     localStorage.removeItem("roomId");
     navigate("/");
@@ -249,15 +344,19 @@ export function CollaborationWorkspace() {
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <h2 className="text-xl font-semibold text-gray-900">Collaboration Problem</h2>
-              <Badge className="bg-green-100 text-green-800 border border-green-300">{roomData.questionDifficulty}</Badge>
-              <Badge variant="secondary" className="border border-gray-300">{roomData.questionTopic}</Badge>
+              <h2 className="text-xl font-semibold text-gray-900">{questionData?.questionTitle || "Untitled Question"}</h2>
+              <Badge className="bg-green-100 text-green-800 border border-green-300">
+                {roomData.questionDifficulty}
+              </Badge>
+              <Badge variant="secondary" className="border border-gray-300">
+                {roomData.questionTopic}
+              </Badge>
               <Badge variant="outline" className="border border-orange-300 bg-orange-50 text-orange-700">
                 <Radio className="h-3 w-3 mr-1 animate-pulse" />
                 Live Session
               </Badge>
             </div>
-            <p className="text-sm text-gray-600">{roomData.question}</p>
+            <p className="text-sm text-gray-600">{questionData?.questionDescription || "No question description available."}</p>
           </div>
         </div>
       </div>
