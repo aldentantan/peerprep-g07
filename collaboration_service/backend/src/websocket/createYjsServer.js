@@ -7,7 +7,6 @@ function createYjsServer({ port, redisClient }) {
     const yjsRooms = {};
     const chatRooms = {};
 
-
     const wss = new WebSocket.Server({ port }, () => {
         console.log(`Yjs WebSocket server is running on ws://localhost:${port}`);
     });
@@ -32,6 +31,46 @@ function createYjsServer({ port, redisClient }) {
             ws.on('message', async (rawMessage) => {
                 try {
                     const parsedMessage = JSON.parse(rawMessage.toString());
+
+                    if (parsedMessage.type === 'user_left') {
+                        const departingUser = typeof parsedMessage.user === 'string' ? parsedMessage.user : '';
+                        if (!departingUser) {
+                            return;
+                        }
+
+                        try {
+                            const roomKey = `room:${roomId}`;
+                            const roomData = await redisClient.hGetAll(roomKey);
+                            if (roomData && roomData.participantUserIds) {
+                                const parsedParticipants = JSON.parse(roomData.participantUserIds);
+                                if (Array.isArray(parsedParticipants)) {
+                                    const updatedParticipants = parsedParticipants.filter(
+                                        (participant) => participant !== departingUser
+                                    );
+                                    await redisClient.hSet(roomKey, {
+                                        participantUserIds: JSON.stringify(updatedParticipants),
+                                    });
+                                }
+                            }
+                        } catch (err) {
+                            console.error(`Failed to update participants for room ${roomId}:`, err);
+                        }
+
+                        const outboundLeft = JSON.stringify({
+                            type: 'user_left',
+                            payload: {
+                                user: departingUser,
+                                timestamp: Date.now(),
+                            },
+                        });
+
+                        room.forEach((client) => {
+                            if (client.readyState === WebSocket.OPEN) {
+                                client.send(outboundLeft);
+                            }
+                        });
+                        return;
+                    }
 
                     if (parsedMessage.type !== 'chat_message') {
                         return;

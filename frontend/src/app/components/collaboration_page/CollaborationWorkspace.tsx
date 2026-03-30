@@ -1,13 +1,14 @@
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { Code2, Users, LogOut, User, Radio } from "lucide-react";
-import Chatbox from "./Chatbox";
+import Chatbox, { type ChatboxHandle } from "./Chatbox";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MonacoBinding } from "y-monaco";
 import Editor from "@monaco-editor/react";
+import { toast } from "sonner";
 
 const languageMap: Record<string, string> = {
   "javascript": "JavaScript",
@@ -71,6 +72,7 @@ export function CollaborationWorkspace() {
   const [searchParams] = useSearchParams();
   const roomId = searchParams.get("roomId");
   const navigate = useNavigate();
+  const chatboxRef = useRef<ChatboxHandle | null>(null);
 
   // Decode the JWT payload once so identity fields can be reused.
   const tokenPayload = useMemo<JwtPayload | null>(() => {
@@ -200,6 +202,23 @@ export function CollaborationWorkspace() {
     fetchRoom();
   }, [roomId, apiBaseUrl]);
 
+  const handleUserLeft = (departingUser: string) => {
+    if (departingUser !== username) {
+      toast.info(`${departingUser} has left the room.`);
+    }
+
+    setRoomData((prev) => {
+      if (!prev?.participantUserIds) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        participantUserIds: prev.participantUserIds.filter((participantId) => participantId !== departingUser),
+      };
+    });
+  };
+
   // Attach Yjs + Monaco collaborative binding when editor is mounted.
   const handleEditorMount = (editor: any) => {
     if (!roomId) {
@@ -220,8 +239,13 @@ export function CollaborationWorkspace() {
 
   // Leave room and clear local room marker used for quick re-entry.
   const handleLeaveRoom = () => {
-    localStorage.removeItem("roomId");
-    navigate("/");
+    chatboxRef.current?.sendUserLeft(username);
+
+    window.setTimeout(() => {
+      chatboxRef.current?.closeSocket();
+      localStorage.removeItem("roomId");
+      navigate("/");
+    }, 60);
   };
 
   if (isLoading) {
@@ -342,10 +366,12 @@ export function CollaborationWorkspace() {
         </div>
 
         <Chatbox
+          ref={chatboxRef}
           roomId={roomId}
           wsBaseUrl={chatWsBaseUrl}
           username={username}
           initialMessages={roomData.chatLog || []}
+          onUserLeft={handleUserLeft}
         />
       </div>
     </div>
