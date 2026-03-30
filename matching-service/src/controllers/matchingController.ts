@@ -3,11 +3,16 @@ import { redis } from '../redis/redisClient';
 import { wsConnectionStore } from '../store/matchingStore';
 import { Difficulty, Language, Topic } from '../types';
 import { toQueueKey } from '../utils';
+import { ACTIVE_QUEUES_KEY, QUEUED_USERS_KEY } from '../redis/redisKeys';
 
-// const TIMEOUT_MS = 2 * 60 * 1000; // 2 mins for production
-const TIMEOUT_MS = 10 * 1000; // 10 seconds for testing
-const QUEUED_USERS_KEY = 'queued.users';
+// const TIMEOUT_MS = 2 * 60 * 1000; // in ms for production
+const TIMEOUT_MS = 30 * 1000; // in ms for testing
 
+// KEYS[1] = queued users hash key
+// KEYS[2] = queue list key
+// KEYS[3] = active queues set key
+// ARGV[1] = user ID
+// ARGV[2] = queued state JSON string
 const LUA_ENQUEUE_IF_ABSENT = `
   if redis.call('HEXISTS', KEYS[1], ARGV[1]) == 1 then
     return 0
@@ -15,9 +20,16 @@ const LUA_ENQUEUE_IF_ABSENT = `
 
   redis.call('RPUSH', KEYS[2], ARGV[1])
   redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])
+  redis.call('SADD', KEYS[3], KEYS[2])
   return 1
 `;
 
+
+// KEYS[1] = queued users hash key
+// KEYS[2] = queue list key
+// KEYS[3] = active queues set key
+// ARGV[1] = user ID
+// ARGV[2] = snapshot of queued state JSON string
 const LUA_CLEANUP_TIMEOUT_IF_QUEUED = `
   local currentState = redis.call('HGET', KEYS[1], ARGV[1])
   if not currentState then
@@ -29,17 +41,30 @@ const LUA_CLEANUP_TIMEOUT_IF_QUEUED = `
     return 0
   end
 
+  -- Remove user from queue and remove queue if no users left
   local removed = redis.call('LREM', KEYS[2], 0, ARGV[1])
   if removed > 0 then
     redis.call('HDEL', KEYS[1], ARGV[1])
+    if redis.call('LLEN', KEYS[2]) == 0 then
+      redis.call('SREM', KEYS[3], KEYS[2])
+    end
     return 1
   end
 
   -- User was no longer in queue (likely already dequeued for match); clear stale hash only.
   redis.call('HDEL', KEYS[1], ARGV[1])
+
+  if redis.call('LLEN', KEYS[2]) == 0 then
+    redis.call('SREM', KEYS[3], KEYS[2])
+  end
   return -1
 `;
 
+// KEYS[1] = queued users hash key
+// KEYS[2] = queue list key
+// KEYS[3] = active queues set key
+// ARGV[1] = user ID
+// ARGV[2] = snapshot of queued state JSON string
 const LUA_CANCEL_IF_QUEUED = `
   local currentState = redis.call('HGET', KEYS[1], ARGV[1])
   if not currentState then
@@ -53,10 +78,18 @@ const LUA_CANCEL_IF_QUEUED = `
   local removed = redis.call('LREM', KEYS[2], 0, ARGV[1])
   if removed > 0 then
     redis.call('HDEL', KEYS[1], ARGV[1])
+    if redis.call('LLEN', KEYS[2]) == 0 then
+      redis.call('SREM', KEYS[3], KEYS[2])
+    end
     return 1
   end
 
   redis.call('HDEL', KEYS[1], ARGV[1])
+
+  -- If no users are left in the queue, remove the queue from active.queues set
+  if redis.call('LLEN', KEYS[2]) == 0 then
+    redis.call('SREM', KEYS[3], KEYS[2])
+  end
   return -1
 `;
 
@@ -101,11 +134,12 @@ export async function handleEnqueue(userId: string, topic: Topic, difficulty: Di
 
   const enqueueResult = (await redis.eval(
     LUA_ENQUEUE_IF_ABSENT,
-    2,
+    3,
     QUEUED_USERS_KEY,
     queueKey,
+    ACTIVE_QUEUES_KEY,
     userId,
-    queuedState,
+    queuedState
   )) as number;
 
   if (enqueueResult === 0) {
@@ -131,9 +165,10 @@ export async function handleCancel(userId: string) {
   const { queueKey } = state;
   const cancelResult = (await redis.eval(
     LUA_CANCEL_IF_QUEUED,
-    2,
+    3,
     QUEUED_USERS_KEY,
     queueKey,
+    ACTIVE_QUEUES_KEY,
     userId,
     rawState,
   )) as number;
@@ -166,9 +201,10 @@ export async function cleanupTimedOutUsers() {
     if (now - state.enqueuedAt >= TIMEOUT_MS) {
       const timeoutCleanupResult = (await redis.eval(
         LUA_CLEANUP_TIMEOUT_IF_QUEUED,
-        2,
+        3,
         QUEUED_USERS_KEY,
         state.queueKey,
+        ACTIVE_QUEUES_KEY,
         userId,
         rawState,
       )) as number;

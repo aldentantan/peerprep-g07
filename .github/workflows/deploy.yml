@@ -28,6 +28,6 @@ jobs:
           aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           application_name: PeerPrep
           environment_name: PeerPrep-env
-          version_label: v-${{ github.sha }}
+          version_label: v-${{ github.run_id }}-${{ github.sha }}
           region: ap-southeast-1
           deployment_package: deploy.zip

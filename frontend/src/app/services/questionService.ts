@@ -19,6 +19,11 @@ export interface QuestionFilters {
   difficulty?: string;
 }
 
+export interface TopicsResponse {
+  count: number;
+  topics: string[];
+}
+
 export interface CreateQuestionData {
   title: string;
   description: string;
@@ -27,7 +32,29 @@ export interface CreateQuestionData {
   leetcodeLink?: string;
   difficulty: string;
   topics: string[];
-  imageUrls?: string[];
+  imageFiles?: File[];
+  existingImageUrls?: string[];
+}
+
+function buildQuestionFormData(data: Partial<CreateQuestionData>) {
+  const formData = new FormData();
+
+  if (data.title !== undefined) formData.append('title', data.title);
+  if (data.description !== undefined) formData.append('description', data.description);
+  if (data.constraints !== undefined) formData.append('constraints', data.constraints);
+  if (data.leetcodeLink !== undefined) formData.append('leetcodeLink', data.leetcodeLink);
+  if (data.difficulty !== undefined) formData.append('difficulty', data.difficulty);
+  if (data.topics !== undefined) formData.append('topics', JSON.stringify(data.topics));
+  if (data.testCases !== undefined) formData.append('testCases', JSON.stringify(data.testCases));
+  if (data.existingImageUrls !== undefined) {
+    formData.append('existingImageUrls', JSON.stringify(data.existingImageUrls));
+  }
+
+  data.imageFiles?.forEach((file) => {
+    formData.append('images', file);
+  });
+
+  return formData;
 }
 
 export async function getQuestions(filters?: QuestionFilters): Promise<{ count: number; questions: Question[] }> {
@@ -47,13 +74,18 @@ export async function getQuestionById(id: number): Promise<{ question: Question 
   return response.data;
 }
 
+export async function getTopics(): Promise<TopicsResponse> {
+  const response = await apiClient.get('/questions/topics');
+  return response.data;
+}
+
 export async function createQuestion(data: CreateQuestionData) {
-  const response = await apiClient.post('/questions', data);
+  const response = await apiClient.post('/questions', buildQuestionFormData(data));
   return response.data;
 }
 
 export async function updateQuestion(id: number, data: Partial<CreateQuestionData>) {
-  const response = await apiClient.put(`/questions/${id}`, data);
+  const response = await apiClient.put(`/questions/${id}`, buildQuestionFormData(data));
   return response.data;
 }
 

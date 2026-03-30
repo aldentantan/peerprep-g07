@@ -14,7 +14,7 @@ import {
   Plus,
   Trash2
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { updateQuestion, type Question } from "@/app/services/questionService";
 
 interface EditQuestionScreenProps {
@@ -29,7 +29,8 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
   const [difficulty, setDifficulty] = useState(question.difficulty);
   const [topic, setTopic] = useState(question.topics[0] || "Arrays");
   const [leetcodeLink, setLeetcodeLink] = useState(question.leetcodeLink || "");
-  const [imageUploaded, setImageUploaded] = useState(question.imageUrls && question.imageUrls.length > 0);
+  const [existingImageUrls, setExistingImageUrls] = useState(question.imageUrls || []);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [testCases, setTestCases] = useState(
@@ -37,6 +38,7 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
       ? question.testCases.map((tc) => ({ input: tc.input, expectedOutput: tc.output }))
       : [{ input: "", expectedOutput: "" }]
   );
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const difficulties = ["Easy", "Medium", "Hard"];
   const topics = [
@@ -70,6 +72,20 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
     setTestCases(updated);
   };
 
+  const handleImageSelection = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setSelectedImage(file);
+    if (file) {
+      setExistingImageUrls([]);
+    }
+    event.target.value = "";
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setExistingImageUrls([]);
+  };
+
   const handleSave = async () => {
     setError("");
     if (!title || !description) {
@@ -85,6 +101,8 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
         topics: [topic],
         testCases: testCases.map((tc) => ({ input: tc.input, output: tc.expectedOutput })),
         leetcodeLink: leetcodeLink || undefined,
+        existingImageUrls,
+        imageFiles: selectedImage ? [selectedImage] : undefined,
       });
       if (onSave) onSave();
       onBack();
@@ -236,25 +254,49 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
               <p className="text-sm text-gray-600">
                 Upload a diagram or visual representation for this question
               </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                className="hidden"
+                onChange={handleImageSelection}
+              />
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                {imageUploaded ? (
+                {selectedImage || existingImageUrls.length > 0 ? (
                   <div className="space-y-3">
                     <div className="w-20 h-20 mx-auto bg-green-100 rounded-lg flex items-center justify-center">
                       <ImageIcon className="w-10 h-10 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">question-image.png</p>
-                      <p className="text-xs text-gray-500">256 KB</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {selectedImage ? selectedImage.name : "Current uploaded image"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {selectedImage
+                          ? `${Math.max(1, Math.round(selectedImage.size / 1024))} KB`
+                          : `${existingImageUrls.length} saved image${existingImageUrls.length === 1 ? "" : "s"}`}
+                      </p>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setImageUploaded(false)}
-                      className="border-2 border-gray-300"
-                    >
-                      <X className="mr-2 h-4 w-4" />
-                      Remove
-                    </Button>
+                    <div className="flex items-center justify-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-gray-300"
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        Replace
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={removeImage}
+                        className="border-2 border-gray-300"
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Remove
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -264,7 +306,7 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
                     <div>
                       <Button
                         variant="outline"
-                        onClick={() => setImageUploaded(true)}
+                        onClick={() => fileInputRef.current?.click()}
                         className="border-2 border-gray-300"
                       >
                         <Upload className="mr-2 h-4 w-4" />

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { createQuestion, getQuestions, getQuestionById, updateQuestion, deleteQuestion } from '../controllers/questionController.js';
+import { createQuestion, getQuestions, getTopics, getRandomQuestion, getQuestionById, updateQuestion, deleteQuestion } from '../controllers/questionController.js';
 import { requireAdmin } from '../middleware/auth.js';
 import {
   uploadQuestionImages,
@@ -18,6 +18,11 @@ const upload = multer({
 // ── Public routes ────────────────────────────────────────────
 // GET /questions?topic=Arrays&difficulty=Easy
 questionRoutes.get('/', getQuestions);
+
+// GET /questions/topics
+questionRoutes.get('/topics', getTopics);
+// GET /questions/random?topic=Arrays&difficulty=Easy
+questionRoutes.get('/random', getRandomQuestion);
 
 // GET /questions/:id
 questionRoutes.get('/:id', getQuestionById);

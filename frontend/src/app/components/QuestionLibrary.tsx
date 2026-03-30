@@ -19,7 +19,7 @@ import {
   User
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getQuestions, deleteQuestion, type Question } from "@/app/services/questionService";
+import { getQuestions, getTopics, deleteQuestion, type Question } from "@/app/services/questionService";
 
 interface QuestionLibraryProps {
   onStartSession?: () => void;
@@ -30,6 +30,7 @@ interface QuestionLibraryProps {
 export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNavigateToEditQuestion }: QuestionLibraryProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [availableTopics, setAvailableTopics] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [topicFilter, setTopicFilter] = useState("");
@@ -55,6 +56,19 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
       setIsLoading(false);
     }
   };
+
+  const fetchTopics = async () => {
+    try {
+      const data = await getTopics();
+      setAvailableTopics(data.topics);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to load topics");
+    }
+  };
+
+  useEffect(() => {
+    fetchTopics();
+  }, []);
 
   useEffect(() => {
     fetchQuestions();
@@ -141,11 +155,11 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
               onChange={(e) => setTopicFilter(e.target.value)}
             >
               <option value="">All Topics</option>
-              <option>Arrays</option>
-              <option>Trees</option>
-              <option>Graphs</option>
-              <option>Dynamic Programming</option>
-              <option>Sorting</option>
+              {availableTopics.map((topic) => (
+                <option key={topic} value={topic}>
+                  {topic}
+                </option>
+              ))}
             </select>
           </div>
 

@@ -1,6 +1,6 @@
 # PeerPrep – Question Service
 
-The Question Service is a REST API that manages the storage, retrieval, and administration of coding questions for the PeerPrep platform.
+The Question Service is a REST API that manages the storage, retrieval, administration, and scheduled ingestion of coding questions for the PeerPrep platform.
 
 ---
 
@@ -28,6 +28,7 @@ question-service/
     ├── middleware/
     │   └── auth.js             # requireAdmin – calls User Service to verify role
     ├── services/
+    │   ├── leetcodeScheduler.js # Periodic LeetCode sync job
     │   └── s3Service.js        # AWS S3 client – upload and delete images
     ├── controllers/
     │   └── questionController.js  # CRUD business logic
@@ -59,6 +60,7 @@ docker compose up --build
 ```
 
 The database is seeded automatically with 20 sample questions on first run.
+The service also includes a scheduler that can periodically fetch LeetCode problems, extract their details, and store them in the questions table.
 
 > **Note:** The seed only runs on the very first `docker compose up` when the volume is brand new. It will not re-run or duplicate data on subsequent starts.
 
@@ -109,8 +111,46 @@ npm start
 | `AWS_ACCESS_KEY_ID` | AWS IAM access key |
 | `AWS_SECRET_ACCESS_KEY` | AWS IAM secret key |
 | `S3_BUCKET_NAME` | Name of your S3 bucket |
+| `LEETCODE_API_URL` | `http://leetcode-api:3000` | Base URL used by the scheduler to fetch LeetCode problems |
+| `LEETCODE_SYNC_CRON` | `* * * * *` | Cron schedule for the sync job. Use `* * * * *` for testing and `0 * * * *` for hourly runs |
+| `LEETCODE_FETCH_LIMIT` | `2` | Maximum number of questions processed in one scheduler run |
+| `LEETCODE_BATCH_SIZE` | `5` | Number of list results fetched before per-question detail requests |
+| `LEETCODE_REQUEST_DELAY_MS` | `5000` | Delay between question detail fetches |
+| `LEETCODE_MAX_RETRIES` | `3` | Maximum retry attempts for failed requests |
+| `LEETCODE_RETRY_DELAY_MS` | `10000` | Delay between retries for non-rate-limit failures |
+| `LEETCODE_RATE_LIMIT_DELAY_MS` | `300000` | Backoff delay after an HTTP 429 response |
+| `LEETCODE_RUN_ON_START` | `false` | Whether to trigger one sync shortly after startup |
 
 
+---
+
+## LeetCode Scheduler
+
+The scheduler is started with the Question Service and is implemented in `src/services/leetcodeScheduler.js`.
+
+### What it does
+
+- Fetches LeetCode problem stubs in batches from the configured API.
+- Fetches per-problem detail payloads and extracts:
+  description, constraints, example inputs/outputs, difficulty, topics, and the LeetCode link.
+- Inserts new questions into Postgres.
+- Updates existing rows when they still contain placeholder or incomplete LeetCode details.
+- Persists the current pagination offset so syncing can continue after restarts.
+
+### Running schedule
+
+- Testing configuration in this repo:
+  `LEETCODE_SYNC_CRON=* * * * *`
+- Hourly configuration:
+  `LEETCODE_SYNC_CRON=0 * * * *`
+
+Restart `question-service` after changing the cron expression so the new schedule takes effect.
+
+### Operational notes
+
+- Only one sync runs at a time. If a cron tick happens while a sync is still running, one follow-up run is queued instead of starting overlapping jobs.
+- When the upstream API returns HTTP 429, the scheduler waits for `LEETCODE_RATE_LIMIT_DELAY_MS` before retrying.
+- The scheduler supplements the seeded questions; it does not remove them.
 ---
 
 ## Database Schema
@@ -131,9 +171,18 @@ CREATE TABLE questions (
 );
 ```
 
+```sql
+CREATE TABLE scheduler_state (
+    key        VARCHAR(100) PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
 - `test_cases` is stored as **JSONB** so Postgres understands the structure, validates it, and allows future querying inside the field.
 - `image_urls` stores only URLs. Actual images are hosted on a third-party service.
 - `updated_at` is automatically updated via a Postgres trigger on every row update.
+- `scheduler_state` stores the persistent LeetCode pagination offset for the scheduler.
 
 ### Test Case Format
 
@@ -190,6 +239,24 @@ http://localhost:3001
 
 ---
 
+### Get All Topics
+
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/questions/topics` | None |
+
+Returns every unique topic currently present in the question database, sorted alphabetically.
+
+**Response 200**
+```json
+{
+  "count": 4,
+  "topics": ["Algorithms", "Arrays", "Data Structures", "Strings"]
+}
+```
+
+---
+
 ### Get All Questions
 
 | Method | Path | Auth |
@@ -238,6 +305,59 @@ GET /questions?topics=Algorithms&difficulty=Medium
       "updatedAt": "2024-01-01T00:00:00.000Z"
     }
   ]
+}
+```
+
+---
+
+### Get Random Question by Topic and Difficulty
+
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/questions/random` | None |
+
+**Query Parameters** - both required
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `topic` | string | Exact topic to match, e.g. `Arrays` |
+| `difficulty` | string | `Easy`, `Medium`, or `Hard` |
+
+**Examples**
+```
+GET /questions/random?topic=Arrays&difficulty=Medium
+GET /questions/random?topic=Algorithms&difficulty=Hard
+```
+
+**Response 200**
+```json
+{
+  "question": {
+    "questionId": 12,
+    "title": "Rotate Image",
+    "description": "You are given an n x n 2D matrix...",
+    "constraints": "n == matrix.length == matrix[i].length",
+    "testCases": [
+      {
+        "input": "matrix = [[1,2,3],[4,5,6],[7,8,9]]",
+        "output": "[[7,4,1],[8,5,2],[9,6,3]]"
+      }
+    ],
+    "leetcodeLink": "https://leetcode.com/problems/rotate-image/",
+    "difficulty": "Medium",
+    "topics": ["Arrays", "Algorithms"],
+    "imageUrls": [],
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+**Response 404**
+```json
+{
+  "error": "Not Found",
+  "message": "No question found for topic \"Graphs\" with difficulty \"Easy\"."
 }
 ```
 
@@ -392,6 +512,9 @@ docker compose up
 # Health check
 curl http://localhost:3001/health
 
+# Get all topics
+curl http://localhost:3001/questions/topics
+
 # Get all questions
 curl http://localhost:3001/questions
 
@@ -403,6 +526,9 @@ curl "http://localhost:3001/questions?topics=Strings,Algorithms"
 
 # Filter by topic and difficulty
 curl "http://localhost:3001/questions?topics=Algorithms&difficulty=Medium"
+
+# Get one random question by topic and difficulty
+curl "http://localhost:3001/questions/random?topic=Arrays&difficulty=Medium"
 
 # Get question by ID
 curl http://localhost:3001/questions/1

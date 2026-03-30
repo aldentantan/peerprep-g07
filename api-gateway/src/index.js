@@ -95,6 +95,7 @@ server.listen(PORT, () => {
   console.log(`             POST http://localhost:${PORT}/api/auth/login`);
   console.log(`  Users:     GET  http://localhost:${PORT}/api/users/me`);
   console.log(`  Questions: GET  http://localhost:${PORT}/api/questions`);
+  console.log(`             GET  http://localhost:${PORT}/api/questions/random?topic=Arrays&difficulty=Medium`);
   console.log(`  Collab:    GET  http://localhost:${PORT}/api/collab/room/:roomId`);
   console.log(`  Matching:  WS   ws://localhost:${PORT}/ws/match`);
   console.log(`  Yjs:       WS   ws://localhost:${PORT}/ws/yjs/:roomId`);

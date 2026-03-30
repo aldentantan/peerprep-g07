@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import pool from './db/index.js';
 import questionRoutes from './routes/questions.js';
+import { startScheduler } from './services/leetcodeScheduler.js';
 
 dotenv.config();
 
@@ -59,13 +60,8 @@ const startServer = async () => {
 
   app.listen(PORT, () => {
     console.log(`Question Service running on port ${PORT}`);
-    console.log(`   Health:    GET  http://localhost:${PORT}/health`);
-    console.log(`   Questions: GET  http://localhost:${PORT}/questions`);
-    console.log(`              GET  http://localhost:${PORT}/questions/:id`);
-    console.log(`              GET  http://localhost:${PORT}/questions/?topics=Arrays,Dynamic%20Programming&difficulty=Medium`);
-    console.log(`              POST http://localhost:${PORT}/questions  [Admin]`);
-    console.log(`              PUT  http://localhost:${PORT}/questions/:id  [Admin]`);
-    console.log(`              DELETE http://localhost:${PORT}/questions/:id  [Admin]`);
+
+    startScheduler();
   });
 };
 

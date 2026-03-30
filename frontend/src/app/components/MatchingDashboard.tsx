@@ -202,10 +202,6 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
     setErrorMessage("");
   };
 
-  const handleFindAnotherMatch = () => {
-    setShowAbandonConfirm(true);
-  };
-
   const confirmAbandon = () => {
     setShowAbandonConfirm(false);
     // Notify server that this user is abandoning the match
@@ -410,7 +406,7 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
             </div>
 
             {/* Start Matching Button */}
-            <Button 
+            <Button
               onClick={handleStartMatching}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-base"
             >
@@ -447,12 +443,12 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
               <div className="w-24 h-24 mx-auto bg-blue-100 rounded-full flex items-center justify-center">
                 <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
               </div>
-              
+
               <div className="space-y-2">
                 <h2 className="text-2xl font-semibold text-gray-800">
                   Finding Your Match...
                 </h2>
-                
+
                 <p className="text-gray-600">
                   Searching for another user with the same preferences
                 </p>
@@ -509,7 +505,7 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
             )}
 
             {/* Cancel Button */}
-            <Button 
+            <Button
               onClick={handleCancelMatching}
               variant="outline"
               className="w-full border-2 border-gray-300 h-11"
@@ -526,11 +522,11 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
               <div className="w-20 h-20 mx-auto bg-green-100 rounded-full flex items-center justify-center">
                 <CheckCircle className="w-10 h-10 text-green-600" />
               </div>
-              
+
               <h2 className="text-2xl font-semibold text-gray-800">
                 Match Found!
               </h2>
-              
+
               <p className="text-gray-600">
                 You've been matched with another user
               </p>
@@ -575,19 +571,12 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              <Button 
+              <Button
                 onClick={navigateToCollaboration}
                 className="w-full bg-green-600 hover:bg-green-700 text-white h-12 text-base"
               >
                 <CheckCircle className="mr-2 h-5 w-5" />
                 Continue to Workspace
-              </Button>
-              <Button 
-                onClick={handleFindAnotherMatch}
-                variant="outline"
-                className="w-full border-2 border-gray-300 h-11"
-              >
-                Find Another Match
               </Button>
             </div>
           </div>
@@ -600,11 +589,11 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
               <div className="w-20 h-20 mx-auto bg-orange-100 rounded-full flex items-center justify-center">
                 <UserX className="w-10 h-10 text-orange-600" />
               </div>
-              
+
               <h2 className="text-2xl font-semibold text-gray-800">
                 Match Abandoned
               </h2>
-              
+
               <p className="text-gray-600">
                 Your match partner has left and is looking for a new match.
               </p>
@@ -619,7 +608,7 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
               </div>
             </div>
 
-            <Button 
+            <Button
               onClick={handleRetry}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-base"
             >
@@ -635,11 +624,11 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
               <div className="w-20 h-20 mx-auto bg-red-100 rounded-full flex items-center justify-center">
                 <XCircle className="w-10 h-10 text-red-600" />
               </div>
-              
+
               <h2 className="text-2xl font-semibold text-gray-800">
                 Matching Timeout
               </h2>
-              
+
               <p className="text-gray-600">
                 No match found within the time limit
               </p>
@@ -679,7 +668,7 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
             </div>
 
             {/* Retry Button */}
-            <Button 
+            <Button
               onClick={handleRetry}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-base"
             >

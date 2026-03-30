@@ -5,7 +5,7 @@ export const LANGUAGES = ["javascript", "python", "java", "cpp", "typescript", "
 export type Topic = typeof TOPICS[number];
 export type Difficulty = typeof DIFFICULTIES[number];
 export type Language = typeof LANGUAGES[number];
-export type QueueKeyString = `${Topic}-${Difficulty}-${Language}`;
+export type QueueKeyString = `${Topic}:${Difficulty}:${Language}`;
 
 export type QueueEntry = {
     userId: string;

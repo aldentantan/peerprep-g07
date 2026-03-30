@@ -11,6 +11,9 @@ export async function createUser(email, username, hashedPassword) {
 export async function createRootAdminUser(email, username, hashedPassword) {
   const existingUser = await getUserByEmail(email);
   if (existingUser) {
+    console.log(
+      `Root admin user with email ${email} already exists. Skipping creation.`,
+    );
     return existingUser;
   }
   const result = await query(
