@@ -1,5 +1,4 @@
 import { randomUUID } from "crypto";
-import { collabRedis } from "../redis/collabRedisClient";
 import { redis } from "../redis/redisClient";
 import { ACTIVE_QUEUES_KEY, QUEUED_USERS_KEY } from "../redis/redisKeys";
 import { DIFFICULTIES, Difficulty, Language, LANGUAGES, Topic, TOPICS } from "../types";
@@ -136,39 +135,29 @@ function lowerDifficulty(first: Difficulty, second: Difficulty): Difficulty {
   return DIFFICULTY_RANK[first] <= DIFFICULTY_RANK[second] ? first : second;
 }
 
-async function publishMatchAndCreateRoom(
+async function publishPendingMatch(
   user1Id: string,
   user2Id: string,
   topic: Topic,
   difficulty: Difficulty,
   language: Language,
 ): Promise<void> {
-  const roomId = randomUUID();
-
-  try {
-    await collabRedis.hset(`room:${roomId}`, {
-      programmingLanguage: language,
-      questionTopic: topic,
-      questionDifficulty: difficulty,
-      participantUserIds: JSON.stringify([user1Id, user2Id]),
-    });
-    console.log(`Room ${roomId} created in collab Redis`);
-  } catch (err) {
-    console.error(`Failed to create room ${roomId} in collab Redis:`, err);
-  }
+  const pendingMatchId = randomUUID();
 
   const matchEvent = JSON.stringify({
+    pendingMatchId,
     users: [user1Id, user2Id],
-    roomId,
     topic,
     difficulty,
     language,
     createdAt: Date.now(),
   });
 
-  console.log(`Publishing match event: ${matchEvent}`);
+  console.log(`Publishing pending match event: ${matchEvent}`);
   await redis.publish("match.events", matchEvent);
-  console.log(`Matched ${user1Id} and ${user2Id} into room ${roomId}`);
+  console.log(
+    `Pending match created for ${user1Id} and ${user2Id} with id ${pendingMatchId}`,
+  );
 }
 
 async function tryRelaxedMatch(): Promise<boolean> {
@@ -224,7 +213,7 @@ async function tryRelaxedMatch(): Promise<boolean> {
           sourceQueue.difficulty,
           adjacentQueue.difficulty,
         );
-        await publishMatchAndCreateRoom(
+        await publishPendingMatch(
           user1Id,
           user2Id,
           sourceQueue.topic,
@@ -282,7 +271,7 @@ async function tryMatch(
   if (!result) return false;
 
   const [user1Id, user2Id] = result;
-  await publishMatchAndCreateRoom(user1Id, user2Id, topic, difficulty, language);
+  await publishPendingMatch(user1Id, user2Id, topic, difficulty, language);
   return true;
 }
 

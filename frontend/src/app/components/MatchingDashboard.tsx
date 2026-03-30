@@ -1,6 +1,16 @@
-import { Button } from "../../app/components/ui/button";
-import { Badge } from "../../app/components/ui/badge";
-import { Label } from "../../app/components/ui/label";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Loader2,
+  Target,
+  Users,
+  UserX,
+  XCircle,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,24 +21,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../app/components/ui/alert-dialog";
-import {
-  Users,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  AlertCircle,
-  Target,
-  AlertTriangle,
-  UserX,
-} from "lucide-react";
-import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Badge } from "../../app/components/ui/badge";
+import { Button } from "../../app/components/ui/button";
+import { Label } from "../../app/components/ui/label";
 
 type MatchingState = "idle" | "searching" | "matched" | "timeout" | "abandoned";
 
 interface MatchInfo {
   roomId: string;
+  users: [string, string];
+  createdAt: number;
+  topic: string;
+  difficulty: string;
+  language: string;
+}
+
+interface PendingMatchInfo {
+  pendingMatchId: string;
   users: [string, string];
   createdAt: number;
   topic: string;
@@ -48,6 +57,9 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
   const [timeRemaining, setTimeRemaining] = useState(30);
   const [showWarning, setShowWarning] = useState(false);
   const [matchData, setMatchData] = useState<MatchInfo | null>(null);
+  const [pendingMatchData, setPendingMatchData] = useState<PendingMatchInfo | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [hasAcceptedMatch, setHasAcceptedMatch] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -109,6 +121,9 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
     setMatchingState("searching");
     setTimeRemaining(30);
     setShowWarning(false);
+    setMatchData(null);
+    setPendingMatchData(null);
+    setHasAcceptedMatch(false);
     setErrorMessage("");
 
     const token = localStorage.getItem("token");
@@ -127,6 +142,8 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
       setErrorMessage("You must be logged in to match.");
       return;
     }
+
+    setCurrentUserId(userId);
 
     const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3004/api";
     // Derive WS URL from the API URL: http(s)://host:port/api -> ws(s)://host:port/ws/match
@@ -155,10 +172,24 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
 
       if (msg.type === "queued") {
         // Already showing "searching" state
+      } else if (msg.type === "match_pending") {
+        setMatchingState("matched");
+        setPendingMatchData(msg.pendingMatch as PendingMatchInfo);
+        setHasAcceptedMatch(false);
+      } else if (msg.type === "match_confirmed") {
+        const confirmedMatch = msg.match as MatchInfo;
+        setMatchData(confirmedMatch);
+        setPendingMatchData(null);
+        setHasAcceptedMatch(false);
+        localStorage.setItem("roomId", confirmedMatch.roomId);
+        navigate(`/collaboration?roomId=${encodeURIComponent(confirmedMatch.roomId)}`);
       } else if (msg.type === "matched") {
         setMatchingState("matched");
         console.log("Match found:", msg.match);
-        setMatchData(msg.match as MatchInfo);
+        const confirmedMatch = msg.match as MatchInfo;
+        setMatchData(confirmedMatch);
+        localStorage.setItem("roomId", confirmedMatch.roomId);
+        navigate(`/collaboration?roomId=${encodeURIComponent(confirmedMatch.roomId)}`);
       } else if (msg.type === "timeout") {
         setMatchingState("timeout");
       } else if (msg.type === "match_abandoned") {
@@ -199,6 +230,8 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
     setTimeRemaining(30);
     setShowWarning(false);
     setMatchData(null);
+    setPendingMatchData(null);
+    setHasAcceptedMatch(false);
     setErrorMessage("");
   };
 
@@ -212,6 +245,8 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
     wsRef.current = null;
     setMatchingState("idle");
     setMatchData(null);
+    setPendingMatchData(null);
+    setHasAcceptedMatch(false);
   };
 
   const navigate = useNavigate();
@@ -224,12 +259,38 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
   }, [navigate]);
 
   const navigateToCollaboration = () => {
-    const targetRoomId = matchData?.roomId || localStorage.getItem("roomId");
+    if (pendingMatchData) {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        setErrorMessage("Matching connection is closed. Please retry.");
+        setMatchingState("idle");
+        setPendingMatchData(null);
+        setHasAcceptedMatch(false);
+        return;
+      }
+
+      if (hasAcceptedMatch) {
+        return;
+      }
+
+      wsRef.current.send(JSON.stringify({
+        type: "accept_match",
+        pendingMatchId: pendingMatchData.pendingMatchId,
+      }));
+      setHasAcceptedMatch(true);
+      return;
+    }
+
+    const targetRoomId = matchData?.roomId;
     if (!targetRoomId) return;
 
     localStorage.setItem("roomId", targetRoomId);
     navigate(`/collaboration?roomId=${encodeURIComponent(targetRoomId)}`);
   }
+
+  const matchedUsers = pendingMatchData?.users ?? matchData?.users ?? null;
+  const matchedPeerId = matchedUsers
+    ? matchedUsers.find((userId) => userId !== currentUserId) ?? matchedUsers[0]
+    : "";
 
   // Cleanup WebSocket on unmount
   useEffect(() => {
@@ -539,7 +600,7 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
                   </div>
                   <div className="text-left">
                     <div className="font-semibold text-gray-900 text-lg">
-                      Anonymous User #2847
+                      {matchedPeerId || "Matched User"}
                     </div>
                     <div className="text-sm text-gray-600">Online now</div>
                   </div>
@@ -563,7 +624,9 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
                 <div className="flex items-start gap-2 text-sm text-blue-800">
                   <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                   <div className="text-left">
-                    You will now be redirected to a collaborative workspace with an appropriate question
+                    {hasAcceptedMatch
+                      ? "Acceptance sent. Waiting for your peer to accept before navigation."
+                      : "Both users must click accept before automatic navigation to the collaborative workspace."}
                   </div>
                 </div>
               </div>
@@ -573,10 +636,11 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
             <div className="space-y-3">
               <Button
                 onClick={navigateToCollaboration}
-                className="w-full bg-green-600 hover:bg-green-700 text-white h-12 text-base"
+                disabled={hasAcceptedMatch}
+                className="w-full bg-green-600 hover:bg-green-700 text-white h-12 text-base disabled:bg-green-300"
               >
                 <CheckCircle className="mr-2 h-5 w-5" />
-                Continue to Workspace
+                {hasAcceptedMatch ? "Waiting for Peer Acceptance..." : "Accept Match"}
               </Button>
             </div>
           </div>

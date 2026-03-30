@@ -1,8 +1,8 @@
 import { parse } from 'url';
-import { handleCancel, handleEnqueue } from '../controllers/matchingController';
-import { wsConnectionStore } from '../store/matchingStore';
-import { Topic, Difficulty, Language } from '../types';
 import { WebSocket } from 'ws';
+import { handleAcceptMatch, handleCancel, handleEnqueue } from '../controllers/matchingController';
+import { wsConnectionStore } from '../store/matchingStore';
+import { Difficulty, Language, Topic } from '../types';
 
 export function handleWsConnection(ws: WebSocket, req: any) {
   const { query } = parse(req.url ?? '', true);
@@ -33,7 +33,13 @@ export function handleWsConnection(ws: WebSocket, req: any) {
 }
 
 function handleMessage(userId: string, ws: WebSocket, raw: Buffer) {
-  let msg: { type: 'enqueue' | 'cancel', topic: Topic, difficulty: Difficulty, language: Language };
+  let msg: {
+    type: 'enqueue' | 'cancel' | 'accept_match';
+    topic?: Topic;
+    difficulty?: Difficulty;
+    language?: Language;
+    pendingMatchId?: string;
+  };
   try {
     msg = JSON.parse(raw.toString());
   } catch {
@@ -42,8 +48,23 @@ function handleMessage(userId: string, ws: WebSocket, raw: Buffer) {
   }
 
   const dispatch = {
-    enqueue: () => handleEnqueue(userId, msg.topic, msg.difficulty, msg.language, ws),
+    enqueue: () => {
+      if (!msg.topic || !msg.difficulty || !msg.language) {
+        sendError(ws, 'Missing enqueue payload');
+        return Promise.resolve();
+      }
+
+      return handleEnqueue(userId, msg.topic, msg.difficulty, msg.language, ws);
+    },
     cancel: () => handleCancel(userId),
+    accept_match: () => {
+      if (!msg.pendingMatchId) {
+        sendError(ws, 'Missing pendingMatchId for accept_match');
+        return Promise.resolve();
+      }
+
+      return handleAcceptMatch(userId, msg.pendingMatchId);
+    },
   };
 
   const action = dispatch[msg.type];

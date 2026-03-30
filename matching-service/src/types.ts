@@ -28,13 +28,25 @@ export type Match = {
   language: Language;
 };
 
+export type PendingMatch = {
+  pendingMatchId: string;
+  users: [string, string];
+  createdAt: number;
+  topic: Topic;
+  difficulty: Difficulty;
+  language: Language;
+};
+
 export type InboundMessage =
  | { type: "enqueue"; topic: Topic; difficulty: Difficulty; language: Language; }
- | { type: "cancel"; };
+ | { type: "cancel"; }
+ | { type: "accept_match"; pendingMatchId: string; };
 
  export type OutboundMessage =
  | { type: "queued"; queueKey: QueueKeyString }
  | { type: "matched"; match: Match }
+ | { type: "match_pending"; pendingMatch: PendingMatch }
+ | { type: "match_confirmed"; match: Match }
  | { type: "timeout" }
  | { type: "cancelled" }
  | { type: "error"; message: string };
