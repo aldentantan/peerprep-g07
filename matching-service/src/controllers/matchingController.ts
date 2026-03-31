@@ -15,7 +15,6 @@ import { toQueueKey } from '../utils';
 // const TIMEOUT_MS = 2 * 60 * 1000; // in ms for production
 const TIMEOUT_MS = 30 * 1000; // in ms for testing
 const PENDING_ACCEPT_TIMEOUT_MS = 15 * 1000;
-const QUESTION_SERVICE_URL = process.env.QUESTION_SERVICE_URL || 'http://localhost:3001';
 
 // KEYS[1] = queued users hash key
 // KEYS[2] = queue list key
@@ -336,23 +335,7 @@ export async function reconcilePendingMatches() {
 async function createRoomForAcceptedMatch(state: PendingMatchState): Promise<Match> {
   const roomId = randomUUID();
 
-  const capDifficulty =
-    state.difficulty.charAt(0).toUpperCase() + state.difficulty.slice(1);
-  const res = await fetch(
-    `${QUESTION_SERVICE_URL}/questions?topics=${encodeURIComponent(state.topic)}&difficulty=${encodeURIComponent(capDifficulty)}`,
-  );
-
-  let questionText = `Solve a ${state.difficulty} ${state.topic} problem.`;
-  if (res.ok) {
-    const data = await res.json();
-    if (data.questions && data.questions.length > 0) {
-      const pick = data.questions[Math.floor(Math.random() * data.questions.length)];
-      questionText = `${pick.title}\n\n${pick.description}`;
-    }
-  }
-
   await collabRedis.hset(`room:${roomId}`, {
-    question: questionText,
     programmingLanguage: state.language,
     questionTopic: state.topic,
     questionDifficulty: state.difficulty,
