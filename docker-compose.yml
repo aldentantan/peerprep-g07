@@ -93,7 +93,7 @@ services:
     restart: unless-stopped
 
   collaboration-service:
-    build: ./collaboration_service/backend
+    build: ./collaboration-service/backend
     container_name: collaboration-service
     environment:
       - REDIS_URL=redis://collab-redis:6379
@@ -106,6 +106,28 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  piston:
+    image: ghcr.io/engineer-man/piston:latest
+    container_name: piston
+    privileged: true
+    volumes:
+      - piston-data:/piston
+    tmpfs:
+      - /tmp:exec
+    restart: unless-stopped
+
+  code-execution-service:
+    build: ./code-execution-service
+    container_name: code-execution-service
+    environment:
+      - PORT=${CODE_EXECUTION_PORT}
+      - PISTON_URL=http://piston:2000
+    ports:
+      - "${CODE_EXECUTION_PORT}:${CODE_EXECUTION_PORT}"
+    depends_on:
+      - piston
+    restart: unless-stopped
+
   api-gateway:
     build: ./api-gateway
     container_name: api-gateway
@@ -116,6 +138,7 @@ services:
       - MATCHING_SERVICE_URL=${MATCHING_SERVICE_URL}
       - COLLAB_SERVICE_URL=${COLLAB_SERVICE_URL}
       - COLLAB_WS_URL=${COLLAB_WS_URL}
+      - CODE_EXECUTION_SERVICE_URL=${CODE_EXECUTION_SERVICE_URL}
       - JWT_SECRET=${JWT_SECRET}
     ports:
       - "${GATEWAY_PORT}:${GATEWAY_PORT}"
@@ -140,4 +163,5 @@ services:
 
 volumes:
   user-postgres-data:
+  piston-data:
   question-postgres-data:
