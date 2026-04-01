@@ -180,6 +180,11 @@ export function CollaborationWorkspace() {
     return participantList;
   }, [roomData, currentUserIdentifiers, username]);
 
+  const peerName = useMemo(() => {
+    const peer = participants.find((p) => !p.isCurrentUser);
+    return peer?.name ?? "your peer";
+  }, [participants]);
+
   // Fetch room metadata and chat history from collaboration API whenever room changes.
   useEffect(() => {
     if (!roomId) {
@@ -397,7 +402,7 @@ export function CollaborationWorkspace() {
             </div>
             <div>
               <h1 className="text-2xl font-bold">Collaboration Workspace</h1>
-              <p className="text-purple-100 text-sm">Live coding session with your peer</p>
+              <p className="text-purple-100 text-sm">Live coding session with {peerName}</p>
             </div>
           </div>
           <Button
