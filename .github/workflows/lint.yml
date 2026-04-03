@@ -1,4 +1,4 @@
-name: Code Linting
+name: Code Lint Check
 
 on:
   push:

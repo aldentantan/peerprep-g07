@@ -23,7 +23,7 @@ module.exports = [
     },
     rules: {
       'react/jsx-uses-vars': 'error',
-      'typescriptEslint/no-explicit-any': 'errors',
+      'typescriptEslint/no-explicit-any': 'error',
       'typescriptEslint/no-unused-vars': 'warn',
     },
   },
