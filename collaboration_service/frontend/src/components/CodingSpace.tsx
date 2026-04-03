@@ -1,10 +1,9 @@
-import { useSearchParams } from "react-router-dom";
-import * as Y from "yjs";
+import Editor, { type OnMount } from "@monaco-editor/react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { MonacoBinding } from "y-monaco";
 import { WebsocketProvider } from "y-websocket";
-import { useEffect, useState, useMemo } from "react";
-import { MonacoBinding } from "y-monaco"
-import Editor from "@monaco-editor/react"
-import { useNavigate } from 'react-router-dom'
+import * as Y from "yjs";
 import Chatbox from "./Chatbox";
 
 type ChatMessage = {
@@ -77,7 +76,7 @@ export default function CodingSpace() {
         fetchRoom()
     }, [roomId, apiBaseUrl])
 
-    const handleEditorMount = (editor: any) => {
+    const handleEditorMount: OnMount = (editor, _monaco) => {
         if (!roomId) return
 
         // 1. Create Yjs doc
@@ -94,9 +93,14 @@ export default function CodingSpace() {
         const yText = ydoc.getText("monaco")
 
         // 4. Bind Monaco editor to Yjs
+        const model = editor.getModel()
+        if (!model) {
+            return
+        }
+
         const binding = new MonacoBinding(
             yText,
-            editor.getModel(),
+            model,
             new Set([editor])
         )
 
@@ -139,7 +143,7 @@ export default function CodingSpace() {
                                     language={roomData.programmingLanguage}
                                     defaultValue=""
                                     theme="vs-dark"
-                                    onMount={(editor) => handleEditorMount(editor)}
+                                    onMount={handleEditorMount}
                                 />
                                 <button
                                     className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded position-left mt-10"

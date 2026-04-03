@@ -3,11 +3,11 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Badge } from "@/app/components/ui/badge";
 import { Textarea } from "@/app/components/ui/textarea";
-import { 
-  ArrowLeft, 
-  Save, 
-  X, 
-  Upload, 
+import {
+  ArrowLeft,
+  Save,
+  X,
+  Upload,
   Image as ImageIcon,
   Shield,
   Plus,
@@ -93,7 +93,7 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
       });
       if (onSave) onSave();
       onBack();
-    } catch (err: any) {
+    } catch (err: { response?: { data?: { error?: string; message?: string } } }) {
       setError(err.response?.data?.error || err.response?.data?.message || "Failed to create question");
     } finally {
       setIsLoading(false);
@@ -123,7 +123,7 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
               <p className="text-purple-100 text-sm mt-1">Create a new coding challenge for the library</p>
             </div>
           </div>
-          <Button 
+          <Button
             onClick={onBack}
             className="bg-white text-purple-600 hover:bg-purple-50 border-white/80"
           >

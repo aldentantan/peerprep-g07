@@ -1,0 +1,55 @@
+name: Build Check
+
+on:
+  push:
+    branches:
+      - main  # Runs on push to main branch
+  pull_request:
+    branches:
+      - main  # Runs on pull request to main branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # GitHub-hosted runner (Ubuntu)
+
+    steps:
+      # Step 1: Checkout the code from the repository
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Step 2: Set up Node.js environment
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20'  # Use the appropriate Node.js version
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: npm install --production
+
+      - name: Install matching-service dependencies
+        run: npm install
+        working-directory: matching-service
+
+      - name: Install user-service dependencies
+        run: npm install
+        working-directory: user-service
+
+      - name: Install question-service dependencies
+        run: npm install
+        working-directory: question-service
+
+      - name: Install api-gateway dependencies
+        run: npm install
+        working-directory: api-gateway
+
+      - name: Install collaboration-service dependencies
+        run: npm install
+        working-directory: collaboration_service/backend
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: frontend
+      # Step 4: Run build command
+      - name: Run build
+        run: npm run build

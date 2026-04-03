@@ -33,7 +33,7 @@ export function LoginScreen({
     try {
       await login({ email, password });
       onNavigateToDashboard();
-    } catch (err: any) {
+    } catch (err: { response?: { data?: { error?: string }; status?: number } }) {
       const msg = err.response?.data?.error;
       if (err.response?.status === 401) {
         setError("Invalid email or password. Please try again.");
