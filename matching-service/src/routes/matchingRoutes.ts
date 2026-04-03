@@ -4,7 +4,7 @@ import { handleAcceptMatch, handleCancel, handleEnqueue } from '../controllers/m
 import { wsConnectionStore } from '../store/matchingStore';
 import { Difficulty, Language, Topic } from '../types';
 
-export function handleWsConnection(ws: WebSocket, req: any) {
+export function handleWsConnection(ws: WebSocket, req: Request) {
   const { query } = parse(req.url ?? '', true);
   const userId = query.userId;
 
@@ -73,7 +73,7 @@ function handleMessage(userId: string, ws: WebSocket, raw: Buffer) {
     return;
   }
 
-  action().catch((err: any) => sendError(ws, err.message));
+  action().catch((err: Error) => sendError(ws, err.message));
 }
 
 function sendError(ws: WebSocket, message: string) {

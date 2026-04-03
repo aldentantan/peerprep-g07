@@ -2,19 +2,15 @@ import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
-import { 
-  BookOpen, 
-  Search, 
-  Grid3x3, 
-  List, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Filter,
+import {
+  BookOpen,
+  Search,
+  Grid3x3,
+  List,
+  Plus,
+  Edit,
+  Trash2,
   Image as ImageIcon,
-  Play,
-  TrendingUp,
-  Database,
   Shield,
   User
 } from "lucide-react";
@@ -27,7 +23,7 @@ interface QuestionLibraryProps {
   onNavigateToEditQuestion?: (question: Question) => void;
 }
 
-export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNavigateToEditQuestion }: QuestionLibraryProps) {
+export function QuestionLibrary({ onNavigateToAddQuestion, onNavigateToEditQuestion }: QuestionLibraryProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
@@ -50,7 +46,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
       }
       const data = await getQuestions(filters);
       setQuestions(data.questions);
-    } catch (err: any) {
+    } catch (err: { response?: { data?: { error?: string } } }) {
       setError(err.response?.data?.error || "Failed to load questions");
     } finally {
       setIsLoading(false);
@@ -61,7 +57,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
     try {
       const data = await getTopics();
       setAvailableTopics(data.topics);
-    } catch (err: any) {
+    } catch (err: { response?: { data?: { error?: string } } }) {
       setError(err.response?.data?.error || "Failed to load topics");
     }
   };
@@ -78,7 +74,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
     try {
       await deleteQuestion(id);
       fetchQuestions();
-    } catch (err: any) {
+    } catch (err: { response?: { data?: { error?: string } } }) {
       setError(err.response?.data?.error || "Failed to delete question");
     }
   };
@@ -135,7 +131,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
             <Label htmlFor="search" className="text-gray-700 mb-2 block">Search Questions</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input 
+              <Input
                 id="search"
                 placeholder="Search by title or topic..."
                 className="pl-10 border-2 border-gray-300"
@@ -148,7 +144,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
           {/* Topic Filter */}
           <div className="w-full lg:w-48">
             <Label htmlFor="topic-filter" className="text-gray-700 mb-2 block">Topic</Label>
-            <select 
+            <select
               id="topic-filter"
               className="w-full h-10 px-3 border-2 border-gray-300 rounded-md bg-white"
               value={topicFilter}
@@ -166,7 +162,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
           {/* Difficulty Filter */}
           <div className="w-full lg:w-48">
             <Label htmlFor="difficulty-filter" className="text-gray-700 mb-2 block">Difficulty</Label>
-            <select 
+            <select
               id="difficulty-filter"
               className="w-full h-10 px-3 border-2 border-gray-300 rounded-md bg-white"
               value={difficultyFilter}
@@ -214,7 +210,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredQuestions.map((question, idx) => (
-            <div 
+            <div
               key={question.questionId}
               className="border-4 border-gray-300 rounded-lg p-5 bg-white hover:border-blue-400 transition-colors cursor-pointer group"
             >
@@ -262,8 +258,8 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
 
                 {/* Admin Action Buttons */}
                 <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     className="flex-1 border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
                     onClick={() => onNavigateToEditQuestion && onNavigateToEditQuestion(question)}
@@ -271,8 +267,8 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
                     <Edit className="mr-1 h-3 w-3" />
                     Edit
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => handleDelete(question.questionId)}
                     className="flex-1 border-2 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400"
@@ -288,7 +284,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
       ) : (
         <div className="space-y-3">
           {filteredQuestions.map((question, idx) => (
-            <div 
+            <div
               key={question.questionId}
               className="border-4 border-gray-300 rounded-lg p-5 bg-white hover:border-blue-400 transition-colors cursor-pointer group"
             >
@@ -325,7 +321,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
 
                 {/* Admin Action Buttons */}
                 <div className="flex gap-2 flex-shrink-0">
-                  <Button 
+                  <Button
                     variant="outline"
                     size="sm"
                     className="border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
@@ -334,7 +330,7 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
                     <Edit className="mr-1 h-4 w-4" />
                     Edit
                   </Button>
-                  <Button 
+                  <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleDelete(question.questionId)}

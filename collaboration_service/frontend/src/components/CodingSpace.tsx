@@ -77,7 +77,7 @@ export default function CodingSpace() {
         fetchRoom()
     }, [roomId, apiBaseUrl])
 
-    const handleEditorMount = (editor: any) => {
+    const handleEditorMount = (editor: Editor) => {
         if (!roomId) return
 
         // 1. Create Yjs doc

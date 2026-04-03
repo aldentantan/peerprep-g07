@@ -220,7 +220,7 @@ export function CollaborationWorkspace() {
   };
 
   // Attach Yjs + Monaco collaborative binding when editor is mounted.
-  const handleEditorMount = (editor: any) => {
+  const handleEditorMount = (editor: Editor) => {
     if (!roomId) {
       return;
     }
@@ -359,7 +359,7 @@ export function CollaborationWorkspace() {
                 language={roomData.programmingLanguage}
                 defaultValue=""
                 theme="vs-dark"
-                onMount={(editor: any) => handleEditorMount(editor)}
+                onMount={(editor: Editor) => handleEditorMount(editor)}
               />
             </div>
           </div>

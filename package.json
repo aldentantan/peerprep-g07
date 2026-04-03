@@ -1,0 +1,31 @@
+{
+  "name": "peerprep-g07",
+  "version": "1.0.0",
+  "description": "[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/HpD0QZBI) # CS3219 Project (PeerPrep) - AY2526S2 ## Group: G07",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint **/src/**/**/*.{ts,tsx}"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aldentantan/peerprep-g07.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/aldentantan/peerprep-g07/issues"
+  },
+  "homepage": "https://github.com/aldentantan/peerprep-g07#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^17.4.0",
+    "typescript-eslint": "^8.58.0"
+  }
+}
