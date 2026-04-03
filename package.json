@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint **/src/**/**/*.{ts,tsx}"
+    "lint": "eslint **/src/**/**/*.{ts,tsx}",
+    "build": "npm run build --prefix matching-service && npm run build --prefix user-service && npm run build --prefix question-service && npm run build --prefix api-gateway && npm run build --prefix collaboration_service/backend && npm run build --prefix frontend"
   },
   "repository": {
     "type": "git",
