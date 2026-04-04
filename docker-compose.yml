@@ -49,6 +49,25 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  attempt-history-service:
+    build: ./attempt-history-service
+    container_name: attempt-history-service
+    environment:
+      - PORT=${ATTEMPT_HISTORY_SERVICE_PORT}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${ATTEMPT_HISTORY_DB_NAME}
+      - DB_BOOTSTRAP_DB=${ATTEMPT_HISTORY_BOOTSTRAP_DB}
+      - JWT_SECRET=${JWT_SECRET}
+      - QUESTION_SERVICE_URL=http://question-service:${QUESTION_SERVICE_PORT}
+    ports:
+      - "${ATTEMPT_HISTORY_SERVICE_PORT}:${ATTEMPT_HISTORY_SERVICE_PORT}"
+    depends_on:
+      - question-service
+    restart: unless-stopped
+
   leetcode-api:
     image: alfaarghya/alfa-leetcode-api:2.0.3
     container_name: leetcode-api
@@ -96,10 +115,11 @@ services:
     build: ./collaboration_service/backend
     container_name: collaboration-service
     environment:
+      - PORT=${COLLAB_SERVICE_PORT}
       - REDIS_URL=redis://collab-redis:6379
       - QUESTION_SERVICE_URL=http://question-service:${QUESTION_SERVICE_PORT}
     ports:
-      - "${COLLAB_SERVICE_PORT}:3000"
+      - "${COLLAB_SERVICE_PORT}:${COLLAB_SERVICE_PORT}"
       - "${COLLAB_YJS_WS_PORT}:8081"
     depends_on:
       collab-redis:
@@ -113,6 +133,7 @@ services:
       - PORT=${GATEWAY_PORT}
       - USER_SERVICE_URL=${USER_SERVICE_URL}
       - QUESTION_SERVICE_URL=${QUESTION_SERVICE_URL}
+      - ATTEMPT_HISTORY_SERVICE_URL=${ATTEMPT_HISTORY_SERVICE_URL}
       - MATCHING_SERVICE_URL=${MATCHING_SERVICE_URL}
       - COLLAB_SERVICE_URL=${COLLAB_SERVICE_URL}
       - COLLAB_WS_URL=${COLLAB_WS_URL}
@@ -122,6 +143,7 @@ services:
     depends_on:
       - matching-service
       - collaboration-service
+      - attempt-history-service
     restart: unless-stopped
 
   frontend:
