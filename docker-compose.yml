@@ -114,7 +114,38 @@ services:
       - piston-data:/piston
     tmpfs:
       - /tmp:exec
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:2000/api/v2/runtimes || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
+
+  piston-init:
+    image: curlimages/curl:latest
+    container_name: piston-init
+    depends_on:
+      piston:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        for pkg in \
+          '{"language":"python","version":"3.10.0"}' \
+          '{"language":"javascript","version":"18.15.0"}' \
+          '{"language":"typescript","version":"5.0.3"}' \
+          '{"language":"java","version":"15.0.2"}' \
+          '{"language":"c++","version":"10.2.0"}' \
+          '{"language":"go","version":"1.16.2"}' \
+          '{"language":"ruby","version":"3.0.1"}' \
+          '{"language":"csharp","version":"6.12.0"}'; do
+          echo "Installing $$pkg..."
+          curl -sf -X POST http://piston:2000/api/v2/packages \
+            -H "Content-Type: application/json" -d "$$pkg" && echo " OK" || echo " FAILED"
+        done
+        echo "All runtimes installed."
+    restart: "no"
 
   code-execution-service:
     build: ./code-execution-service
@@ -125,7 +156,8 @@ services:
     ports:
       - "${CODE_EXECUTION_PORT}:${CODE_EXECUTION_PORT}"
     depends_on:
-      - piston
+      piston-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   api-gateway:
