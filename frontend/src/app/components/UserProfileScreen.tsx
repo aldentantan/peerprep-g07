@@ -14,6 +14,8 @@ export function UserProfileScreen() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -55,6 +57,33 @@ export function UserProfileScreen() {
     window.location.reload();
 
   };
+
+  const handleChangePassword = async () => {
+    setIsSaving(true);
+    setPasswordMessage("");
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setPasswordMessage("Please fill in all password fields");
+      setIsSaving(false);
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordMessage("New passwords do not match");
+      setIsSaving(false);
+      return;
+    }
+    try {
+      await changePassword(currentPassword, newPassword);
+      setPasswordMessage("Password changed successfully!");
+      setIsChangingPassword(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (err: any) {
+      setPasswordMessage(err.response?.data?.error || "Failed to change password");
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   if (isLoading) {
     return <div className="text-center py-12 text-gray-500">Loading profile...</div>;
@@ -217,6 +246,81 @@ export function UserProfileScreen() {
               </div>
             </div>
 
+          </div>
+
+          {/* Change Password Section */}
+          <div className="pt-4 border-t-2 border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-800">Change Password</h2>
+              <Button
+                variant="outline"
+                className="border-2 border-gray-300"
+                onClick={() => setIsChangingPassword(!isChangingPassword)}
+              >
+                {isChangingPassword ? "Cancel" : "Change Password"}
+              </Button>
+            </div>
+
+            {isChangingPassword && (
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password" className="text-gray-700">Current Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input 
+                      id="current-password" 
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="pl-10 border-2 border-gray-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-password" className="text-gray-700">New Password</Label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input 
+                      id="new-password" 
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="pl-10 border-2 border-gray-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-new-password" className="text-gray-700">Confirm New Password</Label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input 
+                      id="confirm-new-password" 
+                      type="password"
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      className="pl-10 border-2 border-gray-300"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleChangePassword}
+                  disabled={isSaving}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSaving ? 'Saving...' : 'Save New Password'}
+                </Button>
+
+                {passwordMessage && (
+                  <p className={`text-sm ${passwordMessage.includes('success') ? 'text-green-600' : 'text-red-600'}`}>
+                    {passwordMessage}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Stats */}

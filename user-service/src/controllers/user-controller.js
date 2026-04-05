@@ -158,7 +158,7 @@ export async function updateUserPassword(req, res) {
       user.hashed_password,
     );
     if (!passwordMatch) {
-      return res.status(401).json({ error: "Current password is incorrect" });
+      return res.status(400).json({ error: "Current password is incorrect" });
     }
 
     // check if new password is valid

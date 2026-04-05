@@ -40,6 +40,22 @@ router.patch('/me', verifyToken, async (req, res) => {
   }
 });
 
+// PATCH /api/users/me/password → user-service PATCH /users/me/password 
+// Updates current user's password
+router.patch('/me/password', verifyToken, async (req, res) => {
+  try {
+    const response = await axios.patch(`${USER_SERVICE_URL}/users/me/password`, req.body, {
+      headers: { Authorization: `Bearer ${req.token}` },
+    });
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+    return res.status(500).json({ error: 'User service unavailable' });
+  }
+});
+
 // GET /api/users/all → user-service GET /users/all (root-admin only) 
 // Get all users
 router.get('/all', verifyToken, async (req, res) => {
