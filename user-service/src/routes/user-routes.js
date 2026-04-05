@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from "multer";
 import {
   createUser,
   getUserBySelf,
@@ -16,6 +17,12 @@ import {
 
 const router = express.Router();
 
+// Multer config for handling profile image uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+});
+
 // Public routes
 router.post('/', createUser);
 
@@ -24,7 +31,12 @@ router.get('/me', verifyAccessToken, getUserBySelf);
 
 router.patch("/me/password", verifyAccessToken, updateUserPassword);
 
-router.patch('/me', verifyAccessToken, updateUser);
+router.patch(
+  "/me",
+  verifyAccessToken,
+  upload.single("profile_image"),
+  updateUser,
+);
 
 
 router.delete("/me", verifyAccessToken, deleteUser);

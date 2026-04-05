@@ -17,6 +17,12 @@ export interface UserProfile {
   username: string;
   access_role: string;
   created_at: string;
+  profile_image_url: string;
+}
+
+export interface UserProfileUpdateData {
+  username?: string;
+  profile_image?: File;
 }
 
 export async function signup(data: SignupData) {
@@ -65,8 +71,11 @@ export async function getProfile(): Promise<UserProfile> {
   return response.data;
 }
 
-export async function updateProfile(username: string) {
-  const response = await apiClient.patch('/users/me', { username });
+export async function updateProfile(userData: Partial<UserProfileUpdateData>) {
+  const formData = new FormData();
+  if (userData.username !== undefined) formData.append('username', userData.username);
+  if (userData.profile_image !== undefined) formData.append('profile_image', userData.profile_image);
+  const response = await apiClient.patch('/users/me', formData);
   const { token } = response.data;
   localStorage.setItem('token', token); // Update token with new username info
   return response.data;

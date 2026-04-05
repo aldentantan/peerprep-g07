@@ -11,6 +11,7 @@ import {
 import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import { mapUserToView } from '../utils/view.js';
+import { uploadImage, deleteImage } from "../services/s3service.js";
 
 export async function createUser(req, res) {
   try {
@@ -102,18 +103,51 @@ export async function getUserById(req, res) {
 export async function updateUser(req, res) {
   try {
     const { email } = req.user;
-    const { username, preferred_language, topics_of_interest } = req.body;
-
+    const { username } = req.body;
+    const profile_image = req.file; // multer adds the file to req.file
     if (!username) {
-      return res.status(400).json({ error: 'Username is required' });
+      return res.status(400).json({ error: "Username is required" });
     }
 
-    const result = await _updateUser(
-      email,
-      username,
-      preferred_language,
-      topics_of_interest,
-    );
+    const user = await _getUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    let imageUrl;
+    if (profile_image) {
+      // Do validation
+      if (!profile_image.mimetype.startsWith("image/")) {
+        return res
+          .status(400)
+          .json({ error: "Uploaded file must be an image" });
+      }
+      if (profile_image.size > 5 * 1024 * 1024) {
+        return res
+          .status(400)
+          .json({ error: "Image size must be less than 5MB" });
+      }
+      // Upload to S3 and get URL
+      imageUrl = await uploadImage(
+        profile_image.buffer,
+        profile_image.originalname,
+        profile_image.mimetype,
+      );
+
+      const old_image_url = user.profile_image_url;
+      if (old_image_url) {
+        // delete old image from S3
+        try {
+          await deleteImage(old_image_url);
+        } catch (error) {
+          console.error("Error deleting old image:", error);
+        }
+      }
+    }
+
+    imageUrl = imageUrl || user.profile_image_url; // if no new image, keep old URL
+
+    const result = await _updateUser(email, username, imageUrl);
 
     if (!result) {
       return res.status(404).json({ error: "User not found" });
@@ -196,6 +230,17 @@ export async function deleteUser(req, res) {
     }
 
     const result = await _deleteUserByEmail(email);
+
+    const old_image_url = result.profile_image_url;
+    if (old_image_url) {
+      // delete old image from S3
+      try {
+        await deleteImage(old_image_url);
+      } catch (error) {
+        console.log("Error deleting old image:", error);
+      }
+    }
+
     if (!result) {
       return res.status(404).json({ error: "User not found" });
     }

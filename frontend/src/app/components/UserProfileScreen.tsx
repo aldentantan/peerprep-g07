@@ -11,6 +11,8 @@ export function UserProfileScreen() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
+  const [profileImageUrl, setProfileImageUrl] = useState("");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -28,6 +30,7 @@ export function UserProfileScreen() {
         setUsername(profile.username);
         setEmail(profile.email);
         setRole(profile.access_role || "user");
+        setProfileImageUrl(profile.profile_image_url || "");
       } catch (err: any) {
         setError("Failed to load profile");
       } finally {
@@ -41,7 +44,7 @@ export function UserProfileScreen() {
     setIsSaving(true);
     setSaveMessage("");
     try {
-      await updateProfile(username);
+      await updateProfile({ username, profile_image: selectedImage || undefined });
       setSaveMessage("Profile updated successfully!");
     } catch (err: any) {
       setSaveMessage(err.response?.data?.error || "Failed to update profile");
@@ -85,6 +88,23 @@ export function UserProfileScreen() {
     }
   }
 
+  const handleCancel = () => {
+    try {      // Revert to original profile data
+      const fetchProfile = async () => {
+        const profile = await getProfile();
+        setUsername(profile.username);
+        setEmail(profile.email);
+        setRole(profile.access_role || "user");
+        setProfileImageUrl(profile.profile_image_url || "");
+        setSelectedImage(null);
+      };
+      fetchProfile();
+      setSaveMessage("Changes reverted successfully!");
+    } catch (err: any) {
+      setSaveMessage("Failed to revert changes");
+    }
+  };
+
   if (isLoading) {
     return <div className="text-center py-12 text-gray-500">Loading profile...</div>;
   }
@@ -110,11 +130,27 @@ export function UserProfileScreen() {
           <div className="text-center space-y-4">
             {/* Avatar Placeholder */}
             <div className="w-32 h-32 mx-auto border-4 border-gray-400 rounded-full flex items-center justify-center bg-gray-100">
-              <User className="w-16 h-16 text-gray-400" />
+              {profileImageUrl ? (
+                <img src={profileImageUrl} className="w-full h-full object-cover rounded-full" />
+              ) : (
+                <User className="w-16 h-16 text-gray-400" />
+              )}
             </div>
-            
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              id="profile-image-upload"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setSelectedImage(file);
+                  setProfileImageUrl(URL.createObjectURL(file));
+                }
+              }}
+            />
             <div>
-              <Button variant="outline" className="mt-2 border-2 border-gray-300">
+              <Button variant="outline" className="mt-2 border-2 border-gray-300" onClick={() => document.getElementById('profile-image-upload')?.click()}>
                 Upload Photo
               </Button>
             </div>
@@ -346,7 +382,7 @@ export function UserProfileScreen() {
           )}
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" className="border-2 border-gray-300">
+            <Button variant="outline" className="border-2 border-gray-300" onClick={handleCancel} disabled={isSaving}> 
               Cancel
             </Button>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSave} disabled={isSaving}>
