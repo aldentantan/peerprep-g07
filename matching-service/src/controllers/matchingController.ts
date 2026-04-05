@@ -219,11 +219,7 @@ function parsePendingMatchState(rawState: string): PendingMatchState | null {
   }
 }
 
-export async function handleMatchEvent(channel: string, rawMessage: string) {
-  if (channel !== "match.events") {
-    return;
-  }
-
+export async function handleMatchEvent(rawMessage: string): Promise<boolean> {
   let event: PendingMatch;
   try {
     event = JSON.parse(rawMessage) as PendingMatch;
@@ -232,7 +228,7 @@ export async function handleMatchEvent(channel: string, rawMessage: string) {
       "[MatchingController] Failed to parse match event:",
       rawMessage,
     );
-    return;
+    return true;
   }
 
   if (
@@ -248,7 +244,7 @@ export async function handleMatchEvent(channel: string, rawMessage: string) {
       "[MatchingController] Invalid pending match event payload:",
       rawMessage,
     );
-    return;
+    return true;
   }
 
   const pendingState: PendingMatchState = {
@@ -277,10 +273,25 @@ export async function handleMatchEvent(channel: string, rawMessage: string) {
   )) as number;
 
   if (createPendingResult !== 1) {
+    const [user1PendingMatchId, user2PendingMatchId] = await Promise.all([
+      redis.hget(USER_PENDING_MATCH_KEY, event.users[0]),
+      redis.hget(USER_PENDING_MATCH_KEY, event.users[1]),
+    ]);
+
+    if (
+      user1PendingMatchId === event.pendingMatchId &&
+      user2PendingMatchId === event.pendingMatchId
+    ) {
+      console.log(
+        `Pending match ${event.pendingMatchId} already exists; treating event as processed`,
+      );
+      return true;
+    }
+
     console.error(
       `Failed to create pending match state for ${event.pendingMatchId}`,
     );
-    return;
+    return false;
   }
 
   // Send match pending WS msg to users and wait for them to accept
@@ -293,6 +304,8 @@ export async function handleMatchEvent(channel: string, rawMessage: string) {
   console.log(
     `Pending match delivered: ${event.users[0]} and ${event.users[1]} with id ${event.pendingMatchId}`,
   );
+
+  return true;
 }
 
 async function removeUserPendingMappingsByPendingMatchId(

@@ -1,6 +1,10 @@
 import { randomUUID } from "crypto";
 import { redis } from "../redis/redisClient";
-import { ACTIVE_QUEUES_KEY, QUEUED_USERS_KEY } from "../redis/redisKeys";
+import {
+  ACTIVE_QUEUES_KEY,
+  MATCH_EVENTS_STREAM_KEY,
+  QUEUED_USERS_KEY,
+} from "../redis/redisKeys";
 import { DIFFICULTIES, Difficulty, Language, LANGUAGES, Topic, TOPICS } from "../types";
 import { toQueueKey } from "../utils";
 const RELAXED_MATCH_WAIT_MS = 20 * 1000;
@@ -154,9 +158,17 @@ async function publishPendingMatch(
   });
 
   console.log(`Publishing pending match event: ${matchEvent}`);
-  await redis.publish("match.events", matchEvent);
+  const streamEntryId = await redis.xadd(
+    MATCH_EVENTS_STREAM_KEY,
+    "MAXLEN",
+    "~",
+    10000,
+    "*",
+    "payload",
+    matchEvent,
+  );
   console.log(
-    `Pending match created for ${user1Id} and ${user2Id} with id ${pendingMatchId}`,
+    `Pending match created for ${user1Id} and ${user2Id} with id ${pendingMatchId} (stream entry ${streamEntryId})`,
   );
 }
 
