@@ -51,6 +51,10 @@ async function initializeRoomQuestion(redisClient, roomId, room) {
             const questionTitle = pickedQuestion?.title || fallbackTitle;
             const questionDescription = pickedQuestion?.description || fallbackDescription;
             const questionId = pickedQuestion?.questionId ? String(pickedQuestion.questionId) : '';
+            const questionTopics = Array.isArray(pickedQuestion?.topics) && pickedQuestion.topics.length > 0
+                ? pickedQuestion.topics
+                : [room.questionTopic].filter(Boolean);
+            const questionUpdatedAt = pickedQuestion?.updatedAt || '';
             const question = `${questionTitle}\n\n${questionDescription}`;
             const testCases = Array.isArray(pickedQuestion?.testCases) ? pickedQuestion.testCases : [];
 
@@ -58,6 +62,8 @@ async function initializeRoomQuestion(redisClient, roomId, room) {
                 questionId,
                 questionTitle,
                 questionDescription,
+                questionTopics: JSON.stringify(questionTopics),
+                questionUpdatedAt,
                 question,
                 testCases: JSON.stringify(testCases),
             });
@@ -70,6 +76,8 @@ async function initializeRoomQuestion(redisClient, roomId, room) {
                 questionId: '',
                 questionTitle: fallbackTitle,
                 questionDescription: fallbackDescription,
+                questionTopics: JSON.stringify([room.questionTopic].filter(Boolean)),
+                questionUpdatedAt: '',
                 question: `${fallbackTitle}\n\n${fallbackDescription}`,
                 testCases: '[]',
             });
@@ -124,6 +132,18 @@ function createApiServer(redisClient) {
                 }
             }
 
+            let questionTopics = [];
+            if (room.questionTopics) {
+                try {
+                    const parsed = JSON.parse(room.questionTopics);
+                    if (Array.isArray(parsed)) {
+                        questionTopics = parsed.filter((item) => typeof item === 'string' && item.trim() !== '');
+                    }
+                } catch (err) {
+                    console.error('Invalid questionTopics in redis:', err);
+                }
+            }
+
             if (!room || Object.keys(room).length === 0 || !room.programmingLanguage || !room.questionTopic || !room.questionDifficulty) {
                 return res.status(404).json({ error: 'Room not found' });
             }
@@ -146,6 +166,8 @@ function createApiServer(redisClient) {
                 questionId: room.questionId || '',
                 questionTitle: room.questionTitle || '',
                 questionDescription: room.questionDescription || room.question || '',
+                questionTopics,
+                questionUpdatedAt: room.questionUpdatedAt || '',
                 programmingLanguage: room.programmingLanguage,
                 questionTopic: room.questionTopic,
                 questionDifficulty: room.questionDifficulty,

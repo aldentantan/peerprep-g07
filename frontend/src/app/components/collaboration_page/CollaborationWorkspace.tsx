@@ -1,6 +1,6 @@
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
-import { Code2, Users, LogOut, User, Radio, Play, Loader2, Terminal, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Code2, Users, LogOut, User, Radio, History, Play, Loader2, Terminal, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
 import Chatbox, { type ChatboxHandle } from "./Chatbox";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import * as Y from "yjs";
@@ -9,16 +9,23 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { MonacoBinding } from "y-monaco";
 import Editor from "@monaco-editor/react";
 import { toast } from "sonner";
+import {
+  createAttemptHistoryEntry,
+  getMyAttemptHistory,
+  type AttemptHistoryEntry,
+} from "@/app/services/attemptHistoryService";
+import { getQuestionById } from "@/app/services/questionService";
+import { AttemptHistoryPanel } from "@/app/components/AttemptHistoryPanel";
 
 const languageMap: Record<string, string> = {
-  "javascript": "JavaScript",
-  "python": "Python",
-  "java": "Java",
-  "cpp": "C++",
-  "typescript": "TypeScript",
-  "go": "Go",
-  "ruby": "Ruby",
-  "csharp": "C#",
+  javascript: "JavaScript",
+  python: "Python",
+  java: "Java",
+  cpp: "C++",
+  typescript: "TypeScript",
+  go: "Go",
+  ruby: "Ruby",
+  csharp: "C#",
 };
 
 
@@ -46,6 +53,7 @@ type RoomData = {
   questionId?: string;
   questionTitle?: string;
   questionDescription?: string;
+  questionTopics?: string[];
   programmingLanguage: string;
   questionTopic: string;
   questionDifficulty: string;
@@ -68,6 +76,14 @@ type JwtPayload = {
   username?: string;
 };
 
+const toTitleCase = (value: string) => {
+  if (!value) {
+    return value;
+  }
+
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+};
+
 export function CollaborationWorkspace() {
   // Build API/WS base URLs from env with sensible local defaults.
   const baseApiUrl = import.meta.env.VITE_API_URL || "/api";
@@ -81,6 +97,9 @@ export function CollaborationWorkspace() {
   const [roomData, setRoomData] = useState<RoomData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [attempts, setAttempts] = useState<AttemptHistoryEntry[]>([]);
+  const [attemptsLoading, setAttemptsLoading] = useState(false);
+  const [isSubmittingAttempt, setIsSubmittingAttempt] = useState(false);
 
   // Code execution state
   const [isRunning, setIsRunning] = useState(false);
@@ -180,6 +199,18 @@ export function CollaborationWorkspace() {
     return participantList;
   }, [roomData, currentUserIdentifiers, username]);
 
+  const displayTopics = useMemo(() => {
+    if (!roomData) {
+      return [];
+    }
+
+    if (roomData.questionTopics && roomData.questionTopics.length > 0) {
+      return roomData.questionTopics;
+    }
+
+    return roomData.questionTopic ? [roomData.questionTopic] : [];
+  }, [roomData]);
+
   const peerName = useMemo(() => {
     const peer = participants.find((p) => !p.isCurrentUser);
     return peer?.name ?? "your peer";
@@ -212,9 +243,10 @@ export function CollaborationWorkspace() {
           questionId: data.questionId,
           questionTitle: data.questionTitle,
           questionDescription: data.questionDescription,
+          questionTopics: data.questionTopics || [],
           programmingLanguage: data.programmingLanguage,
-          questionTopic: data.questionTopic.charAt(0).toUpperCase() + data.questionTopic.slice(1).toLowerCase(),
-          questionDifficulty: data.questionDifficulty.charAt(0).toUpperCase() + data.questionDifficulty.slice(1).toLowerCase(),
+          questionTopic: toTitleCase(data.questionTopic),
+          questionDifficulty: toTitleCase(data.questionDifficulty),
           participantUserIds: data.participantUserIds,
           testCases: data.testCases || [],
           chatLog: data.chatLog,
@@ -229,6 +261,29 @@ export function CollaborationWorkspace() {
 
     fetchRoom();
   }, [roomId, apiBaseUrl]);
+
+  useEffect(() => {
+    const numericQuestionId = roomData?.questionId ? Number.parseInt(roomData.questionId, 10) : Number.NaN;
+    if (!Number.isInteger(numericQuestionId)) {
+      setAttempts([]);
+      return;
+    }
+
+    const fetchAttempts = async () => {
+      try {
+        setAttemptsLoading(true);
+        const response = await getMyAttemptHistory(numericQuestionId);
+        setAttempts(response.attempts);
+      } catch (err) {
+        console.error("Failed to fetch question attempts:", err);
+        toast.error("Could not load your attempt history for this question.");
+      } finally {
+        setAttemptsLoading(false);
+      }
+    };
+
+    fetchAttempts();
+  }, [roomData?.questionId]);
 
   const handleUserLeft = (departingUser: string) => {
     if (departingUser !== username) {
@@ -254,6 +309,8 @@ export function CollaborationWorkspace() {
       return;
     }
 
+    editorRef.current = editor;
+
     const ydoc = new Y.Doc();
     const provider = new WebsocketProvider(wsBaseUrl, roomId, ydoc);
     const yText = ydoc.getText("monaco");
@@ -264,6 +321,48 @@ export function CollaborationWorkspace() {
       provider.destroy();
       ydoc.destroy();
     });
+  };
+
+  const handleSubmitAttempt = async () => {
+    if (!roomData?.questionId) {
+      toast.error("This room does not have a valid question ID yet.");
+      return;
+    }
+
+    const numericQuestionId = Number.parseInt(roomData.questionId, 10);
+    if (!Number.isInteger(numericQuestionId)) {
+      toast.error("This question cannot be recorded yet.");
+      return;
+    }
+
+    const submittedCode = editorRef.current?.getValue?.() ?? "";
+    if (submittedCode.trim() === "") {
+      toast.error("You cannot save an empty attempt.");
+      return;
+    }
+
+    setIsSubmittingAttempt(true);
+
+    try {
+      const { question } = await getQuestionById(numericQuestionId);
+      const response = await createAttemptHistoryEntry({
+        questionId: numericQuestionId,
+        questionTitle: question.title,
+        questionDescription: question.description,
+        questionDifficulty: question.difficulty,
+        questionTopics: question.topics,
+        questionUpdatedAt: question.updatedAt,
+        submittedCode,
+      });
+
+      setAttempts((previousAttempts) => [response.attempt, ...previousAttempts]);
+      toast.success(`Attempt recorded for ${username}.`);
+    } catch (err) {
+      console.error("Failed to submit attempt:", err);
+      toast.error("Could not record your attempt. Please try again.");
+    } finally {
+      setIsSubmittingAttempt(false);
+    }
   };
 
   // Execute code via the code-execution service.
@@ -424,9 +523,11 @@ export function CollaborationWorkspace() {
               <Badge className="bg-green-100 text-green-800 border border-green-300">
                 {roomData.questionDifficulty}
               </Badge>
-              <Badge variant="secondary" className="border border-gray-300">
-                {roomData.questionTopic}
-              </Badge>
+              {displayTopics.map((topic) => (
+                <Badge key={topic} variant="secondary" className="border border-gray-300">
+                  {topic}
+                </Badge>
+              ))}
               <Badge variant="outline" className="border border-orange-300 bg-orange-50 text-orange-700">
                 <Radio className="h-3 w-3 mr-1 animate-pulse" />
                 Live Session
@@ -463,6 +564,24 @@ export function CollaborationWorkspace() {
               </div>
             ))}
           </div>
+
+          <div className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50 space-y-3">
+            <div className="flex items-center gap-2 text-gray-800">
+              <History className="h-4 w-4" />
+              <h3 className="font-semibold">My Submission</h3>
+            </div>
+            <p className="text-xs text-gray-600">
+              This saves the code currently in the shared editor with the current question snapshot and submission time.
+            </p>
+
+            <Button
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={handleSubmitAttempt}
+              disabled={isSubmittingAttempt}
+            >
+              {isSubmittingAttempt ? "Saving Attempt..." : "Save My Attempt"}
+            </Button>
+          </div>
         </div>
 
         <div className="border-4 border-gray-300 rounded-lg p-4 bg-white space-y-3 lg:col-span-2">
@@ -472,7 +591,9 @@ export function CollaborationWorkspace() {
               <h3 className="font-semibold">Code Editor</h3>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs border border-gray-300">{languageMap[roomData.programmingLanguage]}</Badge>
+              <Badge variant="secondary" className="text-xs border border-gray-300">
+                {languageMap[roomData.programmingLanguage] || roomData.programmingLanguage}
+              </Badge>
               <Button
                 size="sm"
                 variant="outline"
@@ -671,6 +792,13 @@ export function CollaborationWorkspace() {
           onUserLeft={handleUserLeft}
         />
       </div>
+
+      <AttemptHistoryPanel
+        attempts={attempts}
+        attemptsLoading={attemptsLoading}
+        title="My Attempt History"
+        emptyMessage="No attempts recorded for this question yet. Save one from this workspace to start your history."
+      />
     </div>
   );
 }

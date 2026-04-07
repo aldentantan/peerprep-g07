@@ -6,6 +6,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import questionRoutes from './routes/questionRoutes.js';
+import attemptHistoryRoutes from './routes/attemptHistoryRoutes.js';
 import matchingRoutes from './routes/matchingRoutes.js';
 import collaborationRoutes from './routes/collaborationRoutes.js';
 import executionRoutes from './routes/executionRoutes.js';
@@ -35,6 +36,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/questions', questionRoutes);
+app.use('/api/attempt-history', attemptHistoryRoutes);
 app.use('/api/match', matchingRoutes);
 app.use('/api/collab', collaborationRoutes);
 app.use('/api/execute', executionRoutes);
@@ -98,6 +100,7 @@ server.listen(PORT, () => {
   console.log(`  Users:     GET  http://localhost:${PORT}/api/users/me`);
   console.log(`  Questions: GET  http://localhost:${PORT}/api/questions`);
   console.log(`             GET  http://localhost:${PORT}/api/questions/random?topic=Arrays&difficulty=Medium`);
+  console.log(`  Attempts:  GET  http://localhost:${PORT}/api/attempt-history/me`);
   console.log(`  Collab:    GET  http://localhost:${PORT}/api/collab/room/:roomId`);
   console.log(`  Matching:  WS   ws://localhost:${PORT}/ws/match`);
   console.log(`  Yjs:       WS   ws://localhost:${PORT}/ws/yjs/:roomId`);
