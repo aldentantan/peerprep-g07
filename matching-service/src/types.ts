@@ -1,4 +1,4 @@
-export const TOPICS = ["arrays", "linked-lists", "trees", "graphs", "dynamic-programming", "strings", "algorithms", "system-design", "data-structures"] as const;
+export const TOPICS = ["arrays", "graphs", "dynamic-programming", "strings", "algorithms", "data-structures", "mathematics", "bit-manipulation", "brainteaser", "databases", "hash-table", "recursion"] as const;
 export const DIFFICULTIES = ["easy", "medium", "hard"] as const;
 export const LANGUAGES = ["javascript", "python", "java", "cpp", "typescript", "go", "ruby", "csharp"] as const;
 

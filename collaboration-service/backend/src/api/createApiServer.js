@@ -9,7 +9,11 @@ const toTitleCase = (value) => {
     if (!value || typeof value !== 'string') {
         return '';
     }
-    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+    return value
+    .trim()
+    .replace(/-/g, ' ') // Replace hyphens with whitespaces
+    .toLowerCase()
+    .replace(/\b[a-z]/g, (char) => char.toUpperCase()); // Capitalize first letter of each word
 };
 
 async function fetchRandomQuestion(questionTopic, questionDifficulty) {

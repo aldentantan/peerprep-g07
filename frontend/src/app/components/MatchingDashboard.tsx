@@ -393,7 +393,7 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
     ? matchedUsers.find((userId) => userId !== currentUserId) ?? matchedUsers[0]
     : "";
   const matchedDifficulty = pendingMatchData?.difficulty;
-  const matchedTopic = pendingMatchData?.topic;
+  const matchedTopic = pendingMatchData?.topic.replace(/-/g, " ");
   const matchedLanguage = pendingMatchData?.language;
 
   // Cleanup WebSocket on unmount
