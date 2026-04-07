@@ -2,6 +2,7 @@ import {
   createUser as _createUser,
   getUserByEmail as _getUserByEmail,
   getUserById as _getUserById,
+  getUserByUsername as _getUserByUsername,
   updateUser as _updateUser,
   updateUserPassword as _updateUserPassword,
   deleteUserByEmail as _deleteUserByEmail,
@@ -21,13 +22,19 @@ export async function createUser(req, res) {
     if (!email || !username || !password) {
       return res
         .status(400)
-        .json({ error: 'Email, username, and password are required' });
+        .json({ error: "Email, username, and password are required" });
     }
 
     // Check if email already exists
     const existingUser = await _getUserByEmail(email);
     if (existingUser) {
-      return res.status(409).json({ error: 'Email already exists' });
+      return res.status(409).json({ error: "Email already exists" });
+    }
+
+    // Check if username already exists
+    const existingUsername = await _getUserByUsername(username);
+    if (existingUsername) {
+      return res.status(409).json({ error: "Username already exists" });
     }
 
     // check if password is valid
@@ -39,7 +46,7 @@ export async function createUser(req, res) {
     if (!isMinLength || !hasUpperCase || !hasLowerCase || !hasDigit) {
       return res.status(400).json({
         error:
-          'Password must be at least 8 characters long and include uppercase letters, lowercase letters, and digits',
+          "Password must be at least 8 characters long and include uppercase letters, lowercase letters, and digits",
       });
     }
 
@@ -100,6 +107,20 @@ export async function getUserById(req, res) {
   }
 }
 
+export async function getUserByUsername(req, res) {
+  try {
+    const { username } = req.params;
+    const user = await _getUserByUsername(username);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    return res.status(200).json(mapUserToView(user));
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to retrieve user" });
+  }
+}
+
 export async function updateUser(req, res) {
   try {
     const { email } = req.user;
@@ -112,6 +133,11 @@ export async function updateUser(req, res) {
     const user = await _getUserByEmail(email);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
+    }
+
+    const existingUsername = await _getUserByUsername(username);
+    if (existingUsername && existingUsername.email !== email) {
+      return res.status(409).json({ error: "Username already exists" });
     }
 
     let imageUrl;
