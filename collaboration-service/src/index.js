@@ -2,7 +2,7 @@ const { createRedisClient, connectRedis } = require('./redis/client');
 const { createApiServer } = require('./api/createApiServer');
 const { createYjsServer } = require('./websocket/createYjsServer');
 
-const HTTP_PORT = 3000;
+const HTTP_PORT = 3003;
 const YJS_WS_PORT = 8081;
 
 async function startServer() {
