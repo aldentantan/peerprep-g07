@@ -165,7 +165,15 @@ export function AdminPanel() {
               <div className="flex items-center gap-4 flex-wrap">
                 {/* Avatar */}
                 <div className="w-12 h-12 border-2 border-gray-400 rounded-full flex items-center justify-center bg-gray-100 flex-shrink-0">
-                  <User className="w-6 h-6 text-gray-400" />
+                  {user.profile_image_url ? (
+                    <img
+                      src={user.profile_image_url}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-6 h-6 text-gray-400" />
+                  )}
+                  
                 </div>
 
                 {/* User Info */}
