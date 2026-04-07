@@ -1,13 +1,11 @@
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { Code2, Users, LogOut, User, Radio, History, Play, Loader2, Terminal, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/app/components/ui/alert-dialog";
 import Chatbox, { type ChatboxHandle } from "./Chatbox";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import * as Y from "yjs";
-import { WebsocketProvider } from "y-websocket";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { MonacoBinding } from "y-monaco";
-import Editor from "@monaco-editor/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import UIEditor from "./Editor";
 import { toast } from "sonner";
 import {
   createAttemptHistoryEntry,
@@ -59,6 +57,7 @@ type RoomData = {
   questionDifficulty: string;
   participantUserIds?: string[];
   testCases?: TestCase[];
+  imageUrls?: string[];
   chatLog: ChatMessage[];
 };
 
@@ -90,7 +89,6 @@ export function CollaborationWorkspace() {
   const apiBaseUrl = `${baseApiUrl.replace(/\/$/, "")}/collab`;
   const executeApiUrl = `${(import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "")}/execute`;
   const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
-  const wsBaseUrl = import.meta.env.VITE_YJS_WS_URL || `${wsScheme}://${window.location.host}/ws/yjs`;
   const chatWsBaseUrl = import.meta.env.VITE_CHAT_WS_URL || `${wsScheme}://${window.location.host}/ws/chat`;
 
   // Screen state for room data loading and failure handling.
@@ -100,6 +98,7 @@ export function CollaborationWorkspace() {
   const [attempts, setAttempts] = useState<AttemptHistoryEntry[]>([]);
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [isSubmittingAttempt, setIsSubmittingAttempt] = useState(false);
+  const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
 
   // Code execution state
   const [isRunning, setIsRunning] = useState(false);
@@ -132,20 +131,13 @@ export function CollaborationWorkspace() {
     }
   }, []);
 
-  // Prefer username from JWT, then local storage, then generated fallback.
-  const username = useMemo(() => {
+  // Set username from JWT, then generated fallback.
+  const username = useMemo(() => {  
     if (tokenPayload?.username && tokenPayload.username.trim()) {
-      localStorage.setItem("peerprep_username", tokenPayload.username);
       return tokenPayload.username;
     }
 
-    const existingUser = localStorage.getItem("peerprep_username");
-    if (existingUser) {
-      return existingUser;
-    }
-
     const generatedUser = `User-${Math.floor(Math.random() * 10000)}`;
-    localStorage.setItem("peerprep_username", generatedUser);
     return generatedUser;
   }, [tokenPayload]);
 
@@ -216,6 +208,18 @@ export function CollaborationWorkspace() {
     return peer?.name ?? "your peer";
   }, [participants]);
 
+  const descriptionParagraphs = useMemo(() => {
+    const description = roomData?.questionDescription?.trim() || "";
+    if (!description) {
+      return [];
+    }
+
+    return description
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
+  }, [roomData?.questionDescription]);
+
   // Fetch room metadata and chat history from collaboration API whenever room changes.
   useEffect(() => {
     if (!roomId) {
@@ -234,6 +238,11 @@ export function CollaborationWorkspace() {
         });
 
         if (!res.ok) {
+          const storedRoomId = localStorage.getItem("roomId");
+          if (storedRoomId === roomId) {
+            localStorage.removeItem("roomId");
+          }
+          navigate("/");
           throw new Error("Room not found");
         }
 
@@ -249,6 +258,7 @@ export function CollaborationWorkspace() {
           questionDifficulty: toTitleCase(data.questionDifficulty),
           participantUserIds: data.participantUserIds,
           testCases: data.testCases || [],
+          imageUrls: data.imageUrls || [],
           chatLog: data.chatLog,
         });
       } catch (err) {
@@ -285,7 +295,7 @@ export function CollaborationWorkspace() {
     fetchAttempts();
   }, [roomData?.questionId]);
 
-  const handleUserLeft = (departingUser: string) => {
+  const handleUserLeft = useCallback((departingUser: string) => {
     if (departingUser !== username) {
       toast.info(`${departingUser} has left the room.`);
     }
@@ -300,28 +310,43 @@ export function CollaborationWorkspace() {
         participantUserIds: prev.participantUserIds.filter((participantId) => participantId !== departingUser),
       };
     });
-  };
+  }, [username]);
 
-  // Attach Yjs + Monaco collaborative binding when editor is mounted.
-  const handleEditorMount = (editor: any) => {
-    editorRef.current = editor;
-    if (!roomId) {
-      return;
+  const handleUserJoined = useCallback((joinedUser: string) => {
+    // Show toast only when another user joins, not for self
+    if (joinedUser !== username) {
+      toast.info(`${joinedUser} has joined the room.`);
     }
 
-    editorRef.current = editor;
+    setRoomData((prev) => {
+      if (!prev?.participantUserIds) {
+        return prev;
+      }
 
-    const ydoc = new Y.Doc();
-    const provider = new WebsocketProvider(wsBaseUrl, roomId, ydoc);
-    const yText = ydoc.getText("monaco");
-    const binding = new MonacoBinding(yText, editor.getModel(), new Set([editor]));
+      // Add to participants only if not already present
+      if (!prev.participantUserIds.includes(joinedUser)) {
+        return {
+          ...prev,
+          participantUserIds: [...prev.participantUserIds, joinedUser],
+        };
+      }
 
-    editor.onDidDispose(() => {
-      binding.destroy();
-      provider.destroy();
-      ydoc.destroy();
+      return prev;
     });
-  };
+  }, [username]);
+
+  // Send best-effort user_left message when page unloads to notify other users
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      chatboxRef.current?.sendUserLeft(username);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [username]);
 
   const handleSubmitAttempt = async () => {
     if (!roomData?.questionId) {
@@ -472,6 +497,19 @@ export function CollaborationWorkspace() {
     }, 60);
   };
 
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "Easy":
+        return "bg-green-100 text-green-800 border-green-300";
+      case "Medium":
+        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      case "Hard":
+        return "bg-red-100 text-red-800 border-red-300";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300";
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -504,14 +542,33 @@ export function CollaborationWorkspace() {
               <p className="text-purple-100 text-sm">Live coding session with {peerName}</p>
             </div>
           </div>
-          <Button
-            className="bg-red-500/80 text-white hover:bg-red-600 border-red-400/30"
-            size="sm"
-            onClick={handleLeaveRoom}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Leave Room
-          </Button>
+          <AlertDialog open={isLeaveConfirmOpen} onOpenChange={setIsLeaveConfirmOpen}>
+            <Button
+              className="bg-red-500/80 text-white hover:bg-red-600 border-red-400/30"
+              size="sm"
+              onClick={() => setIsLeaveConfirmOpen(true)}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Leave Room
+            </Button>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Leave this room?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You will be removed from the collaboration room and sent back to the dashboard. Your current session state will be cleared.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  onClick={handleLeaveRoom}
+                >
+                  Leave Room
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -520,7 +577,7 @@ export function CollaborationWorkspace() {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <h2 className="text-xl font-semibold text-gray-900">{roomData.questionTitle}</h2>
-              <Badge className="bg-green-100 text-green-800 border border-green-300">
+              <Badge className={getDifficultyColor(roomData.questionDifficulty)}>
                 {roomData.questionDifficulty}
               </Badge>
               {displayTopics.map((topic) => (
@@ -533,7 +590,38 @@ export function CollaborationWorkspace() {
                 Live Session
               </Badge>
             </div>
-            <p className="text-sm text-gray-600">{roomData.questionDescription}</p>
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="mt-2 space-y-1 text-sm leading-5 text-slate-700">
+                {descriptionParagraphs.length > 0 ? (
+                  descriptionParagraphs.map((paragraph, index) => (
+                    <p key={index} className="whitespace-pre-line">
+                      {paragraph}
+                    </p>
+                  ))
+                ) : (
+                  <p>No description provided for this question.</p>
+                )}
+              </div>
+            </div>
+            {roomData.imageUrls && roomData.imageUrls.length > 0 && (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                {roomData.imageUrls.map((imageUrl, index) => (
+                  <div key={index} className="rounded-lg border border-gray-300 bg-white p-2">
+                    <img
+                      src={imageUrl}
+                      alt={`Question image ${index + 1}`}
+                      className="mx-auto h-auto max-h-40 w-auto max-w-full rounded-md object-contain"
+                      onError={(e) => {
+                        console.error('Failed to load image:', imageUrl);
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -619,14 +707,10 @@ export function CollaborationWorkspace() {
           </div>
 
           <div className="border-2 border-gray-300 rounded-lg overflow-hidden bg-gray-50">
-            <Editor
-              key={roomId ?? "default-room"}
-              height="400px"
-              language={roomData.programmingLanguage}
-              defaultValue=""
-              theme="vs-dark"
-              onMount={(editor: any) => handleEditorMount(editor)}
-            />
+            <UIEditor 
+                roomId={roomId || ""} 
+                programmingLanguage={roomData.programmingLanguage} 
+              />
           </div>
 
           {/* Output Panel */}
@@ -790,6 +874,7 @@ export function CollaborationWorkspace() {
           username={username}
           initialMessages={roomData.chatLog || []}
           onUserLeft={handleUserLeft}
+          onUserJoined={handleUserJoined}
         />
       </div>
 

@@ -3,7 +3,6 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
 
-
 type ChatMessage = {
     id: string;
     user: string;
@@ -17,6 +16,7 @@ type ChatboxProps = {
     username: string;
     initialMessages: ChatMessage[];
     onUserLeft?: (username: string) => void;
+    onUserJoined?: (username: string) => void;
 };
 
 export type ChatboxHandle = {
@@ -25,7 +25,7 @@ export type ChatboxHandle = {
 };
 
 const Chatbox = forwardRef<ChatboxHandle, ChatboxProps>(function Chatbox(
-    { roomId, wsBaseUrl, initialMessages, username, onUserLeft }: ChatboxProps,
+    { roomId, wsBaseUrl, initialMessages, username, onUserLeft, onUserJoined }: ChatboxProps,
     ref,
 ) {
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -67,6 +67,16 @@ const Chatbox = forwardRef<ChatboxHandle, ChatboxProps>(function Chatbox(
         const ws = new WebSocket(`${wsBaseUrl}/${roomId}`);
         socketRef.current = ws;
 
+        ws.onopen = () => {
+            // Send user_joined event when first connecting
+            ws.send(
+                JSON.stringify({
+                    type: "user_joined",
+                    user: username,
+                }),
+            );
+        };
+
         ws.onmessage = (event) => {
             try {
                 const payload = JSON.parse(event.data);
@@ -74,6 +84,8 @@ const Chatbox = forwardRef<ChatboxHandle, ChatboxProps>(function Chatbox(
                     setMessages((prev) => [...prev, payload.payload as ChatMessage]);
                 } else if (payload.type === "user_left" && payload.payload?.user) {
                     onUserLeft?.(`${payload.payload.user}`);
+                } else if (payload.type === "user_joined" && payload.payload?.user) {
+                    onUserJoined?.(`${payload.payload.user}`);
                 }
             } catch (err) {
                 console.error("Failed to parse chat message:", err);
@@ -84,13 +96,21 @@ const Chatbox = forwardRef<ChatboxHandle, ChatboxProps>(function Chatbox(
             console.error("Chat websocket error:", err);
         };
 
-        return () => {
-            ws.close();
+        ws.onclose = () => {
             if (socketRef.current === ws) {
                 socketRef.current = null;
             }
         };
-    }, [roomId, wsBaseUrl, onUserLeft]);
+
+        return () => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            }
+            if (socketRef.current === ws) {
+                socketRef.current = null;
+            }
+        };
+    }, [roomId, wsBaseUrl, username, onUserLeft, onUserJoined]);
 
     const handleSend = () => {
         const trimmed = draft.trim();

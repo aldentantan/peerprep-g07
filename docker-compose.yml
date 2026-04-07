@@ -116,7 +116,7 @@ services:
     restart: unless-stopped
 
   collaboration-service:
-    build: ./collaboration-service/backend
+    build: ./collaboration-service
     container_name: collaboration-service
     environment:
       - PORT=${COLLAB_SERVICE_PORT}
