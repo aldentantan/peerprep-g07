@@ -93,7 +93,7 @@ services:
     restart: unless-stopped
 
   collaboration-service:
-    build: ./collaboration_service/backend
+    build: ./collaboration-service/backend
     container_name: collaboration-service
     environment:
       - REDIS_URL=redis://collab-redis:6379
@@ -106,6 +106,60 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  piston:
+    image: ghcr.io/engineer-man/piston:latest
+    container_name: piston
+    privileged: true
+    volumes:
+      - piston-data:/piston
+    tmpfs:
+      - /tmp:exec
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:2000/api/v2/runtimes || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  piston-init:
+    image: curlimages/curl:latest
+    container_name: piston-init
+    depends_on:
+      piston:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        for pkg in \
+          '{"language":"python","version":"3.10.0"}' \
+          '{"language":"javascript","version":"18.15.0"}' \
+          '{"language":"typescript","version":"5.0.3"}' \
+          '{"language":"java","version":"15.0.2"}' \
+          '{"language":"c++","version":"10.2.0"}' \
+          '{"language":"go","version":"1.16.2"}' \
+          '{"language":"ruby","version":"3.0.1"}' \
+          '{"language":"csharp","version":"6.12.0"}'; do
+          echo "Installing $$pkg..."
+          curl -sf -X POST http://piston:2000/api/v2/packages \
+            -H "Content-Type: application/json" -d "$$pkg" && echo " OK" || echo " FAILED"
+        done
+        echo "All runtimes installed."
+    restart: "no"
+
+  code-execution-service:
+    build: ./code-execution-service
+    container_name: code-execution-service
+    environment:
+      - PORT=${CODE_EXECUTION_PORT}
+      - PISTON_URL=http://piston:2000
+    ports:
+      - "${CODE_EXECUTION_PORT}:${CODE_EXECUTION_PORT}"
+    depends_on:
+      piston-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   api-gateway:
     build: ./api-gateway
     container_name: api-gateway
@@ -116,6 +170,7 @@ services:
       - MATCHING_SERVICE_URL=${MATCHING_SERVICE_URL}
       - COLLAB_SERVICE_URL=${COLLAB_SERVICE_URL}
       - COLLAB_WS_URL=${COLLAB_WS_URL}
+      - CODE_EXECUTION_SERVICE_URL=${CODE_EXECUTION_SERVICE_URL}
       - JWT_SECRET=${JWT_SECRET}
     ports:
       - "${GATEWAY_PORT}:${GATEWAY_PORT}"
@@ -140,4 +195,5 @@ services:
 
 volumes:
   user-postgres-data:
+  piston-data:
   question-postgres-data:

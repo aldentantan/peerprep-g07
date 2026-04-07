@@ -52,12 +52,14 @@ async function initializeRoomQuestion(redisClient, roomId, room) {
             const questionDescription = pickedQuestion?.description || fallbackDescription;
             const questionId = pickedQuestion?.questionId ? String(pickedQuestion.questionId) : '';
             const question = `${questionTitle}\n\n${questionDescription}`;
+            const testCases = Array.isArray(pickedQuestion?.testCases) ? pickedQuestion.testCases : [];
 
             await redisClient.hSet(`room:${roomId}`, {
                 questionId,
                 questionTitle,
                 questionDescription,
                 question,
+                testCases: JSON.stringify(testCases),
             });
         } catch (err) {
             console.error('Failed to initialize room question:', err);
@@ -69,6 +71,7 @@ async function initializeRoomQuestion(redisClient, roomId, room) {
                 questionTitle: fallbackTitle,
                 questionDescription: fallbackDescription,
                 question: `${fallbackTitle}\n\n${fallbackDescription}`,
+                testCases: '[]',
             });
         } finally {
             await redisClient.del(lockKey);
@@ -129,6 +132,15 @@ function createApiServer(redisClient) {
                 room = await initializeRoomQuestion(redisClient, roomId, room);
             }
 
+            let testCases = [];
+            if (room.testCases) {
+                try {
+                    testCases = JSON.parse(room.testCases);
+                } catch (err) {
+                    console.error('Invalid testCases in redis:', err);
+                }
+            }
+
             return res.json({
                 question: room.question || `${room.questionTitle || ''}\n\n${room.questionDescription || ''}`,
                 questionId: room.questionId || '',
@@ -138,6 +150,7 @@ function createApiServer(redisClient) {
                 questionTopic: room.questionTopic,
                 questionDifficulty: room.questionDifficulty,
                 participantUserIds,
+                testCases,
                 chatLog
             });
         } catch (err) {

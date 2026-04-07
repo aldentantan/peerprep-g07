@@ -703,13 +703,13 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
                 </div>
 
                 <div className="flex gap-3 flex-wrap justify-center">
-                  <Badge className="bg-blue-600 text-white px-3 py-1">
+                  <Badge className="bg-blue-600 text-white px-3 py-1 capitalize">
                     {matchedDifficulty}
                   </Badge>
-                  <Badge className="bg-purple-600 text-white px-3 py-1">
+                  <Badge className="bg-purple-600 text-white px-3 py-1 capitalize">
                     {matchedTopic}
                   </Badge>
-                  <Badge className="bg-green-600 text-white px-3 py-1">
+                  <Badge className="bg-green-600 text-white px-3 py-1 capitalize">
                     {matchedLanguage}
                   </Badge>
                 </div>
