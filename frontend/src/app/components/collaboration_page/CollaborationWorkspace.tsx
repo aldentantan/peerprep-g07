@@ -114,7 +114,6 @@ export function CollaborationWorkspace() {
   const roomId = searchParams.get("roomId");
   const navigate = useNavigate();
   const chatboxRef = useRef<ChatboxHandle | null>(null);
-  const editorRef = useRef<any>(null);
 
   // Decode the JWT payload once so identity fields can be reused.
   const tokenPayload = useMemo<JwtPayload | null>(() => {
@@ -595,7 +594,6 @@ export function CollaborationWorkspace() {
               <Badge variant="secondary" className="text-xs border border-gray-300">
                 {languageMap[roomData.programmingLanguage] || roomData.programmingLanguage}
               </Badge>
-              <Badge variant="secondary" className="text-xs border border-gray-300">{languageMap[roomData.programmingLanguage]}</Badge>
               <Button
                 size="sm"
                 variant="outline"

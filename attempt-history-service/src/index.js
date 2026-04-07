@@ -9,7 +9,7 @@ import attemptRoutes from './routes/attemptRoutes.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3005;
+const PORT = process.env.PORT || 3006;
 
 app.use(cors());
 app.use(express.json());

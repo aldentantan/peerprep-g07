@@ -60,7 +60,7 @@ The service is ready when you see:
 
 ```text
 Attempt history database connected successfully.
-Attempt History Service running on port 3005
+Attempt History Service running on port 3006
 ```
 
 ### Resetting the Database
@@ -100,7 +100,7 @@ The service itself reads the generic variables below. In the repository root `do
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3005` | Port the service listens on |
+| `PORT` | `3006` | Port the service listens on |
 | `DB_HOST` | `localhost` | PostgreSQL host |
 | `DB_PORT` | `5432` | PostgreSQL port |
 | `DB_NAME` | `peerprep_attempt_history` | Target database name for attempt history |
@@ -116,10 +116,10 @@ From the repository root, the important `.env` variables are:
 
 | Root `.env` Variable | Example |
 |----------------------|---------|
-| `ATTEMPT_HISTORY_SERVICE_PORT` | `3005` |
+| `ATTEMPT_HISTORY_SERVICE_PORT` | `3006` |
 | `ATTEMPT_HISTORY_DB_NAME` | `attempthistorydb` |
 | `ATTEMPT_HISTORY_BOOTSTRAP_DB` | `postgres` |
-| `ATTEMPT_HISTORY_SERVICE_URL` | `http://attempt-history-service:3005` |
+| `ATTEMPT_HISTORY_SERVICE_URL` | `http://attempt-history-service:3006` |
 
 ---
 
@@ -200,7 +200,7 @@ CREATE INDEX idx_question_attempt_history_user_question
 ### Base URL
 
 ```text
-http://localhost:3005
+http://localhost:3006
 ```
 
 ---
@@ -377,18 +377,18 @@ Use Postman, Thunder Client, or `curl`.
 
 ```bash
 # Health check
-curl http://localhost:3005/health
+curl http://localhost:3006/health
 
 # Get all attempts for the authenticated user
-curl http://localhost:3005/attempts/me \
+curl http://localhost:3006/attempts/me \
   -H "Authorization: Bearer <token>"
 
 # Get attempts for one question
-curl "http://localhost:3005/attempts/me?questionId=12" \
+curl "http://localhost:3006/attempts/me?questionId=12" \
   -H "Authorization: Bearer <token>"
 
 # Save an attempt
-curl -X POST http://localhost:3005/attempts \
+curl -X POST http://localhost:3006/attempts \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d "{\"questionId\":12,\"questionTitle\":\"Rotate Image\",\"questionDescription\":\"You are given an n x n 2D matrix...\",\"questionDifficulty\":\"Medium\",\"questionTopics\":[\"Arrays\",\"Algorithms\"],\"questionUpdatedAt\":\"2026-04-04T10:00:00.000Z\",\"submittedCode\":\"function rotate(matrix) { ... }\"}"

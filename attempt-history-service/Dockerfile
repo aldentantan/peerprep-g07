@@ -7,6 +7,6 @@ RUN npm install --production
 
 COPY . .
 
-EXPOSE 3005
+EXPOSE 3006
 
 CMD ["node", "src/index.js"]
