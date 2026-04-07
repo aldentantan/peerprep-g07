@@ -1,6 +1,7 @@
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { Code2, Users, LogOut, User, Radio, History, Play, Loader2, Terminal, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/app/components/ui/alert-dialog";
 import Chatbox, { type ChatboxHandle } from "./Chatbox";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -97,6 +98,7 @@ export function CollaborationWorkspace() {
   const [attempts, setAttempts] = useState<AttemptHistoryEntry[]>([]);
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [isSubmittingAttempt, setIsSubmittingAttempt] = useState(false);
+  const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
 
   // Code execution state
   const [isRunning, setIsRunning] = useState(false);
@@ -540,14 +542,33 @@ export function CollaborationWorkspace() {
               <p className="text-purple-100 text-sm">Live coding session with {peerName}</p>
             </div>
           </div>
-          <Button
-            className="bg-red-500/80 text-white hover:bg-red-600 border-red-400/30"
-            size="sm"
-            onClick={handleLeaveRoom}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Leave Room
-          </Button>
+          <AlertDialog open={isLeaveConfirmOpen} onOpenChange={setIsLeaveConfirmOpen}>
+            <Button
+              className="bg-red-500/80 text-white hover:bg-red-600 border-red-400/30"
+              size="sm"
+              onClick={() => setIsLeaveConfirmOpen(true)}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Leave Room
+            </Button>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Leave this room?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You will be removed from the collaboration room and sent back to the dashboard. Your current session state will be cleared.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  onClick={handleLeaveRoom}
+                >
+                  Leave Room
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
