@@ -155,18 +155,37 @@ services:
     command:
       - -c
       - |
+        install_pkg() {
+          pkg=$$1
+          for attempt in 1 2 3; do
+            echo "Installing $$pkg (attempt $$attempt/3)..."
+            result=$$(curl -s --max-time 300 --connect-timeout 10 -w "\n%{http_code}" -X POST http://piston:2000/api/v2/packages \
+              -H "Content-Type: application/json" -d "$$pkg")
+            http_code=$$(echo "$$result" | tail -1)
+            body=$$(echo "$$result" | sed '$$d')
+            if [ "$$http_code" = "200" ]; then
+              echo " OK"
+              return 0
+            elif echo "$$body" | grep -qi "already installed"; then
+              echo " Already installed, skipping"
+              return 0
+            fi
+            echo " Failed (HTTP $$http_code), retrying in 10s..."
+            sleep 10
+          done
+          echo " FAILED after 3 attempts: $$pkg"
+          return 1
+        }
         for pkg in \
           '{"language":"python","version":"3.10.0"}' \
-          '{"language":"javascript","version":"18.15.0"}' \
+          '{"language":"node","version":"18.15.0"}' \
           '{"language":"typescript","version":"5.0.3"}' \
           '{"language":"java","version":"15.0.2"}' \
-          '{"language":"c++","version":"10.2.0"}' \
+          '{"language":"gcc","version":"10.2.0"}' \
           '{"language":"go","version":"1.16.2"}' \
           '{"language":"ruby","version":"3.0.1"}' \
-          '{"language":"csharp","version":"6.12.0"}'; do
-          echo "Installing $$pkg..."
-          curl -sf -X POST http://piston:2000/api/v2/packages \
-            -H "Content-Type: application/json" -d "$$pkg" && echo " OK" || echo " FAILED"
+          '{"language":"mono","version":"6.12.0"}'; do
+          install_pkg "$$pkg"
         done
         echo "All runtimes installed."
     restart: "no"
