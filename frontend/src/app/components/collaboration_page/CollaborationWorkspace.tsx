@@ -4,7 +4,7 @@ import { Code2, Users, LogOut, User, Radio, History, Play, Loader2, Terminal, Ch
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/app/components/ui/alert-dialog";
 import Chatbox, { type ChatboxHandle } from "./Chatbox";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import UIEditor from "./Editor";
 import { toast } from "sonner";
 import {
