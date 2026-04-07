@@ -1,25 +1,30 @@
-import { Button } from "@/app/components/ui/button";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { Badge } from "@/app/components/ui/badge";
+import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
-import { 
-  BookOpen, 
-  Search, 
-  Grid3x3, 
-  List, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Filter,
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/app/components/ui/pagination";
+import {
+  BookOpen,
+  Edit,
+  Grid3x3,
   Image as ImageIcon,
-  Play,
-  TrendingUp,
-  Database,
+  List,
+  Plus,
+  Search,
   Shield,
-  User
+  Trash2,
+  User,
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import { getQuestions, getTopics, deleteQuestion, type Question } from "@/app/services/questionService";
+import { deleteQuestion, getQuestions, getTopics, type Question } from "@/app/services/questionService";
 
 interface QuestionLibraryProps {
   onStartSession?: () => void;
@@ -27,7 +32,28 @@ interface QuestionLibraryProps {
   onNavigateToEditQuestion?: (question: Question) => void;
 }
 
-export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNavigateToEditQuestion }: QuestionLibraryProps) {
+const DEFAULT_PAGE_SIZE = 12;
+
+const buildPaginationItems = (currentPage: number, totalPages: number) => {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, "ellipsis", totalPages];
+  }
+
+  if (currentPage >= totalPages - 3) {
+    return [1, "ellipsis", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  }
+
+  return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", totalPages];
+};
+
+export function QuestionLibrary({
+  onNavigateToAddQuestion,
+  onNavigateToEditQuestion,
+}: QuestionLibraryProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
@@ -36,22 +62,54 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
   const [topicFilter, setTopicFilter] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim());
+  const previousFilterKeyRef = useRef("");
 
   const fetchQuestions = async () => {
     setIsLoading(true);
     setError("");
+
     try {
-      const filters: { topics?: string[]; difficulty?: string } = {};
+      const filters: {
+        topics?: string[];
+        difficulty?: string;
+        search?: string;
+        page?: number;
+        pageSize?: number;
+      } = {
+        page: currentPage,
+        pageSize,
+      };
+
       if (topicFilter) {
         filters.topics = [topicFilter];
       }
+
       if (difficultyFilter) {
         filters.difficulty = difficultyFilter;
       }
+
+      if (deferredSearchQuery) {
+        filters.search = deferredSearchQuery;
+      }
+
       const data = await getQuestions(filters);
       setQuestions(data.questions);
+      setTotalCount(data.totalCount);
+      setTotalPages(data.totalPages);
+
+      if (data.page !== currentPage) {
+        setCurrentPage(data.page);
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed to load questions");
+      setQuestions([]);
+      setTotalCount(0);
+      setTotalPages(0);
     } finally {
       setIsLoading(false);
     }
@@ -71,34 +129,44 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
   }, []);
 
   useEffect(() => {
+    const filterKey = [topicFilter, difficultyFilter, deferredSearchQuery, pageSize].join("|");
+    if (previousFilterKeyRef.current !== filterKey) {
+      previousFilterKeyRef.current = filterKey;
+
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        return;
+      }
+    }
+
     fetchQuestions();
-  }, [topicFilter, difficultyFilter]);
+  }, [topicFilter, difficultyFilter, deferredSearchQuery, currentPage, pageSize]);
 
   const handleDelete = async (id: number) => {
     try {
       await deleteQuestion(id);
-      fetchQuestions();
+      await fetchQuestions();
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed to delete question");
     }
   };
 
-  const filteredQuestions = searchQuery
-    ? questions.filter(
-        (q) =>
-          q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          q.topics.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : questions;
-
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case "Easy": return "bg-green-100 text-green-800 border-green-300";
-      case "Medium": return "bg-yellow-100 text-yellow-800 border-yellow-300";
-      case "Hard": return "bg-red-100 text-red-800 border-red-300";
-      default: return "bg-gray-100 text-gray-800 border-gray-300";
+      case "Easy":
+        return "bg-green-100 text-green-800 border-green-300";
+      case "Medium":
+        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      case "Hard":
+        return "bg-red-100 text-red-800 border-red-300";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300";
     }
   };
+
+  const paginationItems = buildPaginationItems(currentPage, totalPages);
+  const startItem = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = totalCount === 0 ? 0 : startItem + questions.length - 1;
 
   return (
     <div className="space-y-6">
@@ -132,12 +200,14 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
           <div className="flex-1">
-            <Label htmlFor="search" className="text-gray-700 mb-2 block">Search Questions</Label>
+            <Label htmlFor="search" className="text-gray-700 mb-2 block">
+              Search Questions
+            </Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input 
+              <Input
                 id="search"
-                placeholder="Search by title or topic..."
+                placeholder="Search by title, description, or topic..."
                 className="pl-10 border-2 border-gray-300"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -147,8 +217,10 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
 
           {/* Topic Filter */}
           <div className="w-full lg:w-48">
-            <Label htmlFor="topic-filter" className="text-gray-700 mb-2 block">Topic</Label>
-            <select 
+            <Label htmlFor="topic-filter" className="text-gray-700 mb-2 block">
+              Topic
+            </Label>
+            <select
               id="topic-filter"
               className="w-full h-10 px-3 border-2 border-gray-300 rounded-md bg-white"
               value={topicFilter}
@@ -165,17 +237,35 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
 
           {/* Difficulty Filter */}
           <div className="w-full lg:w-48">
-            <Label htmlFor="difficulty-filter" className="text-gray-700 mb-2 block">Difficulty</Label>
-            <select 
+            <Label htmlFor="difficulty-filter" className="text-gray-700 mb-2 block">
+              Difficulty
+            </Label>
+            <select
               id="difficulty-filter"
               className="w-full h-10 px-3 border-2 border-gray-300 rounded-md bg-white"
               value={difficultyFilter}
               onChange={(e) => setDifficultyFilter(e.target.value)}
             >
               <option value="">All Levels</option>
-              <option>Easy</option>
-              <option>Medium</option>
-              <option>Hard</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
+
+          <div className="w-full lg:w-36">
+            <Label htmlFor="page-size" className="text-gray-700 mb-2 block">
+              Per Page
+            </Label>
+            <select
+              id="page-size"
+              className="w-full h-10 px-3 border-2 border-gray-300 rounded-md bg-white"
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+            >
+              <option value={12}>12</option>
+              <option value={24}>24</option>
+              <option value={48}>48</option>
             </select>
           </div>
 
@@ -203,7 +293,20 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
           </div>
         </div>
 
-        {/* Removed admin controls below search questions */}
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-gray-600">
+          <p>
+            {isLoading
+              ? "Loading questions..."
+              : totalCount === 0
+                ? "No questions found."
+                : `Showing ${startItem}-${endItem} of ${totalCount} questions`}
+          </p>
+          {deferredSearchQuery && (
+            <p>
+              Search results for <span className="font-medium text-gray-800">"{deferredSearchQuery}"</span>
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Questions Display */}
@@ -211,146 +314,207 @@ export function QuestionLibrary({ onStartSession, onNavigateToAddQuestion, onNav
         <div className="text-center py-12 text-gray-500">Loading questions...</div>
       ) : error ? (
         <div className="text-center py-12 text-red-600">{error}</div>
+      ) : questions.length === 0 ? (
+        <div className="border-4 border-dashed border-gray-300 rounded-lg p-12 bg-white text-center text-gray-500">
+          No questions match the current filters.
+        </div>
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredQuestions.map((question, idx) => (
-            <div 
-              key={question.questionId}
-              className="border-4 border-gray-300 rounded-lg p-5 bg-white hover:border-blue-400 transition-colors cursor-pointer group"
-            >
-              <div className="space-y-3">
+          {questions.map((question, idx) => {
+            const questionNumber = (currentPage - 1) * pageSize + idx + 1;
+
+            return (
+              <div
+                key={question.questionId}
+                className="border-4 border-gray-300 rounded-lg p-5 bg-white hover:border-blue-400 transition-colors cursor-pointer group"
+              >
+                <div className="space-y-3">
                 {/* Header */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="outline" className="text-xs font-mono border-gray-400 text-gray-600">
-                        Q{String(idx + 1).padStart(3, '0')}
-                      </Badge>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-xs font-mono border-gray-400 text-gray-600">
+                          Q{String(questionNumber).padStart(3, "0")}
+                        </Badge>
+                      </div>
+                      <h3 className="font-semibold text-gray-900">{question.title}</h3>
                     </div>
-                    <h3 className="font-semibold text-gray-900">{question.title}</h3>
+                    {question.imageUrls && question.imageUrls.length > 0 && (
+                      <div className="flex-shrink-0 p-1 border-2 border-gray-300 rounded">
+                        <ImageIcon className="h-4 w-4 text-gray-400" />
+                      </div>
+                    )}
                   </div>
-                  {question.imageUrls && question.imageUrls.length > 0 && (
-                    <div className="flex-shrink-0 p-1 border-2 border-gray-300 rounded">
-                      <ImageIcon className="h-4 w-4 text-gray-400" />
-                    </div>
-                  )}
-                </div>
 
                 {/* Tags */}
-                <div className="flex flex-wrap gap-2">
-                  <Badge className={`border ${getDifficultyColor(question.difficulty)}`}>
-                    {question.difficulty}
-                  </Badge>
-                  {question.topics.map((t) => (
-                    <Badge key={t} variant="secondary" className="border border-gray-300">
-                      {t}
-                    </Badge>
-                  ))}
-                </div>
-
-                {/* Description */}
-                <p className="text-sm text-gray-600 line-clamp-2">{question.description}</p>
-
-                {/* Leetcode Link */}
-                {question.leetcodeLink && (
-                  <div className="flex items-center gap-2 text-xs text-blue-600">
-                    <a href={question.leetcodeLink} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                      LeetCode Link
-                    </a>
-                  </div>
-                )}
-
-                {/* Admin Action Buttons */}
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="flex-1 border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
-                    onClick={() => onNavigateToEditQuestion && onNavigateToEditQuestion(question)}
-                  >
-                    <Edit className="mr-1 h-3 w-3" />
-                    Edit
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleDelete(question.questionId)}
-                    className="flex-1 border-2 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400"
-                  >
-                    <Trash2 className="mr-1 h-3 w-3" />
-                    Remove
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredQuestions.map((question, idx) => (
-            <div 
-              key={question.questionId}
-              className="border-4 border-gray-300 rounded-lg p-5 bg-white hover:border-blue-400 transition-colors cursor-pointer group"
-            >
-              <div className="flex items-center gap-4">
-                {/* Image Indicator */}
-                <div className="w-16 h-16 border-2 border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 flex-shrink-0">
-                  {question.imageUrls && question.imageUrls.length > 0 ? (
-                    <ImageIcon className="h-8 w-8 text-gray-400" />
-                  ) : (
-                    <BookOpen className="h-8 w-8 text-gray-400" />
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="outline" className="text-xs font-mono border-gray-400 text-gray-600">
-                      Q{String(idx + 1).padStart(3, '0')}
-                    </Badge>
-                    <h3 className="font-semibold text-gray-900">{question.title}</h3>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2">{question.description}</p>
                   <div className="flex flex-wrap gap-2">
-                    <Badge className={`border text-xs ${getDifficultyColor(question.difficulty)}`}>
+                    <Badge className={`border ${getDifficultyColor(question.difficulty)}`}>
                       {question.difficulty}
                     </Badge>
-                    {question.topics.map((t) => (
-                      <Badge key={t} variant="secondary" className="border border-gray-300 text-xs">
-                        {t}
+                    {question.topics.map((topic) => (
+                      <Badge key={topic} variant="secondary" className="border border-gray-300">
+                        {topic}
                       </Badge>
                     ))}
                   </div>
-                </div>
+
+                {/* Description */}
+                  <p className="text-sm text-gray-600 line-clamp-2">{question.description}</p>
+
+                {/* Leetcode Link */}
+                  {question.leetcodeLink && (
+                    <div className="flex items-center gap-2 text-xs text-blue-600">
+                      <a href={question.leetcodeLink} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                        LeetCode Link
+                      </a>
+                    </div>
+                  )}
 
                 {/* Admin Action Buttons */}
-                <div className="flex gap-2 flex-shrink-0">
-                  <Button 
-                    variant="outline"
-                    size="sm"
-                    className="border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
-                    onClick={() => onNavigateToEditQuestion && onNavigateToEditQuestion(question)}
-                  >
-                    <Edit className="mr-1 h-4 w-4" />
-                    Edit
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(question.questionId)}
-                    className="border-2 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400"
-                  >
-                    <Trash2 className="mr-1 h-4 w-4" />
-                    Remove
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
+                      onClick={() => onNavigateToEditQuestion && onNavigateToEditQuestion(question)}
+                    >
+                      <Edit className="mr-1 h-3 w-3" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(question.questionId)}
+                      className="flex-1 border-2 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400"
+                    >
+                      <Trash2 className="mr-1 h-3 w-3" />
+                      Remove
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {questions.map((question, idx) => {
+            const questionNumber = (currentPage - 1) * pageSize + idx + 1;
+
+            return (
+              <div
+                key={question.questionId}
+                className="border-4 border-gray-300 rounded-lg p-5 bg-white hover:border-blue-400 transition-colors cursor-pointer group"
+              >
+                <div className="flex items-center gap-4">
+                {/* Image Indicator */}
+                  <div className="w-16 h-16 border-2 border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 flex-shrink-0">
+                    {question.imageUrls && question.imageUrls.length > 0 ? (
+                      <ImageIcon className="h-8 w-8 text-gray-400" />
+                    ) : (
+                      <BookOpen className="h-8 w-8 text-gray-400" />
+                    )}
+                  </div>
+
+                {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className="text-xs font-mono border-gray-400 text-gray-600">
+                        Q{String(questionNumber).padStart(3, "0")}
+                      </Badge>
+                      <h3 className="font-semibold text-gray-900">{question.title}</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">{question.description}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge className={`border text-xs ${getDifficultyColor(question.difficulty)}`}>
+                        {question.difficulty}
+                      </Badge>
+                      {question.topics.map((topic) => (
+                        <Badge key={topic} variant="secondary" className="border border-gray-300 text-xs">
+                          {topic}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                {/* Admin Action Buttons */}
+                  <div className="flex gap-2 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
+                      onClick={() => onNavigateToEditQuestion && onNavigateToEditQuestion(question)}
+                    >
+                      <Edit className="mr-1 h-4 w-4" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(question.questionId)}
+                      className="border-2 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400"
+                    >
+                      <Trash2 className="mr-1 h-4 w-4" />
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* ...existing code... */}
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (currentPage > 1) {
+                    setCurrentPage((page) => page - 1);
+                  }
+                }}
+                className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+              />
+            </PaginationItem>
+
+            {paginationItems.map((item, index) => (
+              <PaginationItem key={`${item}-${index}`}>
+                {item === "ellipsis" ? (
+                  <PaginationEllipsis />
+                ) : (
+                  <PaginationLink
+                    href="#"
+                    isActive={item === currentPage}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setCurrentPage(item);
+                    }}
+                  >
+                    {item}
+                  </PaginationLink>
+                )}
+              </PaginationItem>
+            ))}
+
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (currentPage < totalPages) {
+                    setCurrentPage((page) => page + 1);
+                  }
+                }}
+                className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
     </div>
   );
 }

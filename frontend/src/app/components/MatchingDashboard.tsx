@@ -24,6 +24,7 @@ import {
 import { Badge } from "../../app/components/ui/badge";
 import { Button } from "../../app/components/ui/button";
 import { Label } from "../../app/components/ui/label";
+import { getTopics } from "../services/questionService";
 
 type MatchingState =
   | "idle"
@@ -56,11 +57,33 @@ interface MatchingDashboardProps {
 }
 
 const MATCH_ACCEPT_TIMEOUT_SECONDS = 15;
+const TOPIC_MAP: Record<string, string> = {
+  "Algorithms": "algorithms",
+  "Data Structures": "data-structures",
+  "Dynamic Programming": "dynamic-programming",
+  "Graphs": "graphs",
+  "Trees": "trees",
+  "Arrays": "arrays",
+  "Strings": "strings",
+  "System Design": "system-design",
+  "Linked Lists": "linked-lists",
+};
+
+const normalizeTopicForMatching = (topic: string) =>
+  TOPIC_MAP[topic] ||
+  topic
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardProps) {
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("Medium");
-  const [selectedTopic, setSelectedTopic] = useState<string>("Algorithms");
+  const [selectedTopic, setSelectedTopic] = useState<string>("");
   const [selectedLanguage, setSelectedLanguage] = useState<string>("JavaScript");
+  const [availableTopics, setAvailableTopics] = useState<string[]>([]);
+  const [isLoadingTopics, setIsLoadingTopics] = useState(true);
+  const [topicsError, setTopicsError] = useState("");
   const [matchingState, setMatchingState] = useState<MatchingState>("idle");
   const [timeRemaining, setTimeRemaining] = useState(30);
   const [showWarning, setShowWarning] = useState(false);
@@ -89,17 +112,6 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
   };
 
   const difficulties = ["Easy", "Medium", "Hard"];
-  const topics = [
-    "Algorithms",
-    "Data Structures",
-    "Dynamic Programming",
-    "Graphs",
-    "Trees",
-    "Arrays",
-    "Strings",
-    "System Design",
-    "Linked Lists",
-  ];
   const languages = [
     "JavaScript",
     "Python",
@@ -110,19 +122,6 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
     "Ruby",
     "C#",
   ];
-
-  // Map display names to backend enum values
-  const topicMap: Record<string, string> = {
-    "Algorithms": "algorithms",
-    "Data Structures": "data-structures",
-    "Dynamic Programming": "dynamic-programming",
-    "Graphs": "graphs",
-    "Trees": "trees",
-    "Arrays": "arrays",
-    "Strings": "strings",
-    "System Design": "system-design",
-    "Linked Lists": "linked-lists",
-  };
 
   const languageMap: Record<string, string> = {
     "JavaScript": "javascript",
@@ -136,6 +135,11 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
   };
 
   const handleStartMatching = () => {
+    if (!selectedTopic) {
+      setErrorMessage("Please select a topic before starting matching.");
+      return;
+    }
+
     // Close any stale WebSocket from a previous attempt
     if (wsRef.current) {
       wsRef.current.close();
@@ -183,7 +187,7 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
     ws.onopen = () => {
       ws.send(JSON.stringify({
         type: "enqueue",
-        topic: topicMap[selectedTopic] || selectedTopic.toLowerCase(),
+        topic: normalizeTopicForMatching(selectedTopic),
         difficulty: selectedDifficulty.toLowerCase(),
         language: languageMap[selectedLanguage] || selectedLanguage.toLowerCase(),
       }));
@@ -306,6 +310,53 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
 
     navigate(`/collaboration?roomId=${encodeURIComponent(storedRoomId)}`);
   }, [navigate]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchAvailableTopics = async () => {
+      setIsLoadingTopics(true);
+      setTopicsError("");
+
+      try {
+        const data = await getTopics();
+        if (isCancelled) {
+          return;
+        }
+
+        setAvailableTopics(data.topics);
+        setSelectedTopic((currentTopic) => {
+          if (currentTopic && data.topics.includes(currentTopic)) {
+            return currentTopic;
+          }
+
+          return data.topics[0] ?? "";
+        });
+
+        if (data.topics.length === 0) {
+          setTopicsError("No topics are currently available.");
+        }
+      } catch (err: any) {
+        if (isCancelled) {
+          return;
+        }
+
+        setAvailableTopics([]);
+        setSelectedTopic("");
+        setTopicsError(err.response?.data?.error || "Failed to load topics");
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingTopics(false);
+        }
+      }
+    };
+
+    fetchAvailableTopics();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const navigateToCollaboration = () => {
     if (pendingMatchData) {
@@ -490,26 +541,36 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
               <Label className="text-gray-700 text-base">
                 Topic
               </Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {topics.map((topic) => (
-                  <button
-                    key={topic}
-                    onClick={() => setSelectedTopic(topic)}
-                    className={`p-3 border-3 rounded-lg font-medium text-sm transition-all relative ${
-                      selectedTopic === topic
-                        ? "border-blue-600 bg-blue-50 text-blue-700"
-                        : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
-                    }`}
-                  >
-                    {selectedTopic === topic && (
-                      <div className="absolute top-1 right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
-                        <CheckCircle className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                    {topic}
-                  </button>
-                ))}
-              </div>
+              {isLoadingTopics ? (
+                <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+                  Loading available topics...
+                </div>
+              ) : availableTopics.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {availableTopics.map((topic) => (
+                    <button
+                      key={topic}
+                      onClick={() => setSelectedTopic(topic)}
+                      className={`p-3 border-3 rounded-lg font-medium text-sm transition-all relative ${
+                        selectedTopic === topic
+                          ? "border-blue-600 bg-blue-50 text-blue-700"
+                          : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+                      }`}
+                    >
+                      {selectedTopic === topic && (
+                        <div className="absolute top-1 right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                          <CheckCircle className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                      {topic}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border-2 border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {topicsError || "No topics available for matching right now."}
+                </div>
+              )}
             </div>
 
             {/* Language Selection */}
@@ -547,7 +608,7 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
                   {selectedDifficulty}
                 </Badge>
                 <Badge className="bg-purple-600 text-white px-3 py-1">
-                  {selectedTopic}
+                  {selectedTopic || "No topic available"}
                 </Badge>
                 <Badge className="bg-green-600 text-white px-3 py-1">
                   {selectedLanguage}
@@ -558,19 +619,20 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
             {/* Start Matching Button */}
             <Button
               onClick={handleStartMatching}
+              disabled={isLoadingTopics || availableTopics.length === 0 || !selectedTopic}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-base"
             >
               <Users className="mr-2 h-5 w-5" />
-              Start Matching
+              {isLoadingTopics ? "Loading Topics..." : "Start Matching"}
             </Button>
 
             {/* Warning/Error Message */}
-            {errorMessage && (
+            {(errorMessage || topicsError) && (
               <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg mt-4">
                 <div className="flex items-start gap-2 text-sm text-red-800">
                   <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                   <div className="text-left">
-                    {errorMessage}
+                    {errorMessage || topicsError}
                   </div>
                 </div>
               </div>
@@ -703,13 +765,13 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
                 </div>
 
                 <div className="flex gap-3 flex-wrap justify-center">
-                  <Badge className="bg-blue-600 text-white px-3 py-1">
+                  <Badge className="bg-blue-600 text-white px-3 py-1 capitalize">
                     {matchedDifficulty}
                   </Badge>
-                  <Badge className="bg-purple-600 text-white px-3 py-1">
+                  <Badge className="bg-purple-600 text-white px-3 py-1 capitalize">
                     {matchedTopic}
                   </Badge>
-                  <Badge className="bg-green-600 text-white px-3 py-1">
+                  <Badge className="bg-green-600 text-white px-3 py-1 capitalize">
                     {matchedLanguage}
                   </Badge>
                 </div>

@@ -58,6 +58,8 @@ function PaginationLink({
           variant: isActive ? "outline" : "ghost",
           size,
         }),
+        "text-white hover:bg-amber-300 hover:text-slate-900",
+        isActive && "border-blue-300 bg-blue-600 text-white hover:bg-amber-300 hover:text-slate-900",
         className,
       )}
       {...props}
@@ -107,7 +109,7 @@ function PaginationEllipsis({
     <span
       aria-hidden
       data-slot="pagination-ellipsis"
-      className={cn("flex size-9 items-center justify-center", className)}
+      className={cn("flex size-9 items-center justify-center", "text-white", className)}
       {...props}
     >
       <MoreHorizontalIcon className="size-4" />

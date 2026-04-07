@@ -2,6 +2,8 @@ import pool from '../db/index.js';
 import { uploadImage, deleteImages } from '../services/s3Service.js';
 
 const VALID_DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
+const DEFAULT_QUESTION_PAGE_SIZE = 12;
+const MAX_QUESTION_PAGE_SIZE = 100;
 
 // ────────────────────────────────────────────────────────────
 // Helper: map DB row → clean API response object
@@ -29,6 +31,11 @@ const buildQuestionResponse = (question) => {
   }
 
   return response;
+};
+
+const parsePositiveInteger = (value, fallback) => {
+  const parsed = parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 };
 
 // ────────────────────────────────────────────────────────────
@@ -144,6 +151,10 @@ const createQuestion = async (req, res) => {
 // ────────────────────────────────────────────────────────────
 const getQuestions = async (req, res) => {
   const { topics, difficulty } = req.query;
+  const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+  const requestedPage = parsePositiveInteger(req.query.page, 1);
+  const requestedPageSize = parsePositiveInteger(req.query.pageSize, DEFAULT_QUESTION_PAGE_SIZE);
+  const pageSize = Math.min(requestedPageSize, MAX_QUESTION_PAGE_SIZE);
 
   const conditions = [];
   const params = [];
@@ -165,12 +176,33 @@ const getQuestions = async (req, res) => {
     conditions.push(`topics && $${params.length}::text[]`);
   }
 
+  if (search) {
+    params.push(`%${search}%`);
+    conditions.push(
+      `(title ILIKE $${params.length} OR description ILIKE $${params.length} OR array_to_string(topics, ' ') ILIKE $${params.length})`
+    );
+  }
+
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   try {
-    const result = await pool.query(
-      `SELECT * FROM questions ${whereClause} ORDER BY question_id ASC`,
+    const countResult = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM questions ${whereClause}`,
       params
+    );
+    const totalCount = countResult.rows[0]?.total || 0;
+    const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 0;
+    const page = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
+    const offset = (page - 1) * pageSize;
+
+    const queryParams = [...params, pageSize, offset];
+    const result = await pool.query(
+      `SELECT * FROM questions
+       ${whereClause}
+       ORDER BY question_id ASC
+       LIMIT $${queryParams.length - 1}
+       OFFSET $${queryParams.length}`,
+      queryParams
     );
 
     // Return all assets; note missing image URLs in response
@@ -188,6 +220,12 @@ const getQuestions = async (req, res) => {
 
     return res.status(200).json({
       count: questionsWithAssetStatus.length,
+      totalCount,
+      page,
+      pageSize,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
       questions: questionsWithAssetStatus,
     });
   } catch (err) {

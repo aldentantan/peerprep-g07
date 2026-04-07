@@ -119,6 +119,10 @@ const htmlToPlainText = (html = '') =>
     )
   );
 
+const LEETCODE_LINK_PREFIX = 'https://leetcode.com/problems/';
+const PLACEHOLDER_TEXT_REGEX = /see leetcode|not provided by leetcode/i;
+const LEETCODE_FALLBACK_DESCRIPTION_REGEX = /^LeetCode problem:/i;
+
 const findLabelIndex = (text, label, startIndex = 0) => {
   const matcher = new RegExp(`${label}:`, 'i');
   const match = matcher.exec(text.slice(startIndex));
@@ -218,33 +222,15 @@ const parseExampleBlock = (exampleBlock) => {
     return null;
   }
 
+  if (!input || !output) {
+    return null;
+  }
+
   return {
-    input: input || 'Not provided by LeetCode.',
-    output: output || 'Not provided by LeetCode.',
+    input,
+    output,
     ...(explanation ? { explanation } : {}),
   };
-};
-
-const buildFallbackTestCases = (question = {}) => {
-  const candidates = [];
-
-  if (Array.isArray(question.exampleTestcaseList)) {
-    candidates.push(...question.exampleTestcaseList);
-  }
-
-  if (typeof question.exampleTestcases === 'string') {
-    candidates.push(...question.exampleTestcases.split('\n'));
-  }
-
-  if (typeof question.sampleTestCase === 'string') {
-    candidates.push(question.sampleTestCase);
-  }
-
-  const uniqueCases = [...new Set(candidates.map((item) => item.trim()).filter(Boolean))];
-  return uniqueCases.map((input) => ({
-    input,
-    output: 'Output not provided by LeetCode API.',
-  }));
 };
 
 const normalizeDetailPayload = (detail, problem = {}) => {
@@ -300,36 +286,90 @@ const buildQuestionPayload = ({ detail, problem, slug }) => {
   const plainText = htmlToPlainText(question.htmlContent);
   const sections = splitProblemSections(plainText);
   const parsedExamples = sections.exampleBlocks.map(parseExampleBlock).filter(Boolean);
-  const fallbackExamples = buildFallbackTestCases(question);
-  const testCases =
-    parsedExamples.length > 0
-      ? parsedExamples
-      : fallbackExamples.length > 0
-        ? fallbackExamples
-        : [{ input: 'Not provided by LeetCode API.', output: 'Not provided by LeetCode API.' }];
 
   return {
     title: question.title || problem.title,
-    description: sections.description || plainText || `LeetCode problem: ${question.title || problem.title}`,
+    description: sections.description || plainText || null,
     constraints: sections.constraints || null,
-    testCases,
-    leetcodeLink: question.link || `https://leetcode.com/problems/${slug}/`,
+    testCases: parsedExamples,
+    leetcodeLink: question.link || `${LEETCODE_LINK_PREFIX}${slug}/`,
     difficulty: mapDifficulty(question.difficulty || problem.difficulty),
     topics: mapTopics(question.topicTags || problem.topicTags || []),
   };
 };
 
-const hasPlaceholderDetails = (row) => {
-  const descriptionMissing = !row.description || /see leetcode/i.test(row.description);
-  const constraintsMissing = !row.constraints || !row.constraints.trim();
-  const testCasesMissing =
-    !Array.isArray(row.test_cases) ||
-    row.test_cases.length === 0 ||
-    row.test_cases.every((testCase) =>
-      /see leetcode|not provided by leetcode/i.test(`${testCase?.input || ''} ${testCase?.output || ''}`)
-    );
+const hasMeaningfulDescription = (description) => {
+  const normalizedDescription = normalizeText(description || '');
+  return Boolean(
+    normalizedDescription &&
+    !LEETCODE_FALLBACK_DESCRIPTION_REGEX.test(normalizedDescription) &&
+    !PLACEHOLDER_TEXT_REGEX.test(normalizedDescription)
+  );
+};
 
-  return descriptionMissing || constraintsMissing || testCasesMissing;
+const hasMeaningfulTestCaseValue = (value) => {
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  if (typeof value === 'string') {
+    const normalizedValue = normalizeText(value);
+    return Boolean(normalizedValue) && !PLACEHOLDER_TEXT_REGEX.test(normalizedValue);
+  }
+
+  if (typeof value === 'object') {
+    return Object.keys(value).length > 0;
+  }
+
+  return true;
+};
+
+const hasMeaningfulTestCases = (testCases) =>
+  Array.isArray(testCases) &&
+  testCases.some(
+    (testCase) =>
+      hasMeaningfulTestCaseValue(testCase?.input) &&
+      hasMeaningfulTestCaseValue(testCase?.output)
+  );
+
+const hasRequiredQuestionContent = (payload) =>
+  hasMeaningfulDescription(payload.description) && hasMeaningfulTestCases(payload.testCases);
+
+const hasPlaceholderDetails = (row) =>
+  !hasMeaningfulDescription(row.description) || !hasMeaningfulTestCases(row.test_cases);
+
+const cleanupIncompleteLeetCodeQuestions = async () => {
+  const result = await pool.query(
+    `DELETE FROM questions
+      WHERE LOWER(COALESCE(leetcode_link, '')) LIKE '${LEETCODE_LINK_PREFIX}%'
+        AND (
+          description IS NULL
+          OR BTRIM(description) = ''
+          OR description ~* '^LeetCode problem:'
+          OR description ~* 'see leetcode'
+          OR test_cases IS NULL
+          OR CASE
+            WHEN jsonb_typeof(test_cases) = 'array' THEN jsonb_array_length(test_cases)
+            ELSE 0
+          END = 0
+          OR NOT EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof(test_cases) = 'array' THEN test_cases
+                ELSE '[]'::jsonb
+              END
+            ) AS test_case
+            WHERE BTRIM(COALESCE(test_case->>'input', '')) <> ''
+              AND BTRIM(COALESCE(test_case->>'output', '')) <> ''
+              AND COALESCE(test_case->>'input', '') !~* 'see leetcode|not provided by leetcode'
+              AND COALESCE(test_case->>'output', '') !~* 'see leetcode|not provided by leetcode'
+          )
+        )
+      RETURNING question_id, title`
+  );
+
+  return result.rows;
 };
 
 // ── Persistent skip state ─────────────────────────────────────
@@ -503,6 +543,11 @@ const runSync = async () => {
   let totalProcessed = 0;
 
   try {
+    const removedQuestions = await cleanupIncompleteLeetCodeQuestions();
+    if (removedQuestions.length > 0) {
+      console.log(`[scheduler] Removed ${removedQuestions.length} incomplete LeetCode question(s) from the DB.`);
+    }
+
     while (totalProcessed < CONFIG.fetchLimitPerRun) {
       if (isShuttingDown) {
         console.log('[scheduler] Shutdown requested — stopping sync gracefully.');
@@ -548,6 +593,13 @@ const runSync = async () => {
 
         // Build and insert
         const payload = buildQuestionPayload({ detail, problem, slug });
+        if (!hasRequiredQuestionContent(payload)) {
+          tracker.skipped++;
+          tracker.log('skipped', title, '(missing description or test cases)');
+          totalProcessed++;
+          await sleep(CONFIG.delayBetweenQuestions);
+          continue;
+        }
 
         try {
           if (existingQuestion) {
@@ -637,4 +689,4 @@ const startScheduler = () => {
   }
 };
 
-export { startScheduler, runSync };
+export { cleanupIncompleteLeetCodeQuestions, startScheduler, runSync };

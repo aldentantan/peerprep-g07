@@ -13,6 +13,10 @@ services:
       - ADMIN_EMAIL=${ADMIN_EMAIL}
       - ADMIN_USERNAME=${ADMIN_USERNAME}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
     ports:
       - "${USER_SERVICE_PORT}:${USER_SERVICE_PORT}"
     restart: unless-stopped
@@ -47,6 +51,25 @@ services:
     depends_on:
       leetcode-api:
         condition: service_started
+    restart: unless-stopped
+
+  attempt-history-service:
+    build: ./attempt-history-service
+    container_name: attempt-history-service
+    environment:
+      - PORT=${ATTEMPT_HISTORY_SERVICE_PORT}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${ATTEMPT_HISTORY_DB_NAME}
+      - DB_BOOTSTRAP_DB=${ATTEMPT_HISTORY_BOOTSTRAP_DB}
+      - JWT_SECRET=${JWT_SECRET}
+      - QUESTION_SERVICE_URL=http://question-service:${QUESTION_SERVICE_PORT}
+    ports:
+      - "${ATTEMPT_HISTORY_SERVICE_PORT}:${ATTEMPT_HISTORY_SERVICE_PORT}"
+    depends_on:
+      - question-service
     restart: unless-stopped
 
   leetcode-api:
@@ -96,14 +119,88 @@ services:
     build: ./collaboration-service
     container_name: collaboration-service
     environment:
+      - PORT=${COLLAB_SERVICE_PORT}
       - REDIS_URL=redis://collab-redis:6379
       - QUESTION_SERVICE_URL=http://question-service:${QUESTION_SERVICE_PORT}
     ports:
-      - "${COLLAB_SERVICE_PORT}:3000"
+      - "${COLLAB_SERVICE_PORT}:${COLLAB_SERVICE_PORT}"
       - "${COLLAB_YJS_WS_PORT}:8081"
     depends_on:
       collab-redis:
         condition: service_healthy
+    restart: unless-stopped
+
+  piston:
+    image: ghcr.io/engineer-man/piston:latest
+    container_name: piston
+    privileged: true
+    volumes:
+      - piston-data:/piston
+    tmpfs:
+      - /tmp:exec
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:2000/api/v2/runtimes', r => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  piston-init:
+    image: curlimages/curl:latest
+    container_name: piston-init
+    depends_on:
+      piston:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        install_pkg() {
+          pkg=$$1
+          for attempt in 1 2 3; do
+            echo "Installing $$pkg (attempt $$attempt/3)..."
+            result=$$(curl -s --max-time 300 --connect-timeout 10 -w "\n%{http_code}" -X POST http://piston:2000/api/v2/packages \
+              -H "Content-Type: application/json" -d "$$pkg")
+            http_code=$$(echo "$$result" | tail -1)
+            body=$$(echo "$$result" | sed '$$d')
+            if [ "$$http_code" = "200" ]; then
+              echo " OK"
+              return 0
+            elif echo "$$body" | grep -qi "already installed"; then
+              echo " Already installed, skipping"
+              return 0
+            fi
+            echo " Failed (HTTP $$http_code), retrying in 10s..."
+            sleep 10
+          done
+          echo " FAILED after 3 attempts: $$pkg"
+          return 1
+        }
+        for pkg in \
+          '{"language":"python","version":"3.10.0"}' \
+          '{"language":"node","version":"18.15.0"}' \
+          '{"language":"typescript","version":"5.0.3"}' \
+          '{"language":"java","version":"15.0.2"}' \
+          '{"language":"gcc","version":"10.2.0"}' \
+          '{"language":"go","version":"1.16.2"}' \
+          '{"language":"ruby","version":"3.0.1"}' \
+          '{"language":"mono","version":"6.12.0"}'; do
+          install_pkg "$$pkg"
+        done
+        echo "All runtimes installed."
+    restart: "no"
+
+  code-execution-service:
+    build: ./code-execution-service
+    container_name: code-execution-service
+    environment:
+      - PORT=${CODE_EXECUTION_PORT}
+      - PISTON_URL=http://piston:2000
+    ports:
+      - "${CODE_EXECUTION_PORT}:${CODE_EXECUTION_PORT}"
+    depends_on:
+      piston-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   api-gateway:
@@ -113,15 +210,18 @@ services:
       - PORT=${GATEWAY_PORT}
       - USER_SERVICE_URL=${USER_SERVICE_URL}
       - QUESTION_SERVICE_URL=${QUESTION_SERVICE_URL}
+      - ATTEMPT_HISTORY_SERVICE_URL=${ATTEMPT_HISTORY_SERVICE_URL}
       - MATCHING_SERVICE_URL=${MATCHING_SERVICE_URL}
       - COLLAB_SERVICE_URL=${COLLAB_SERVICE_URL}
       - COLLAB_WS_URL=${COLLAB_WS_URL}
+      - CODE_EXECUTION_SERVICE_URL=${CODE_EXECUTION_SERVICE_URL}
       - JWT_SECRET=${JWT_SECRET}
     ports:
       - "${GATEWAY_PORT}:${GATEWAY_PORT}"
     depends_on:
       - matching-service
       - collaboration-service
+      - attempt-history-service
     restart: unless-stopped
 
   frontend:
@@ -140,4 +240,5 @@ services:
 
 volumes:
   user-postgres-data:
+  piston-data:
   question-postgres-data:

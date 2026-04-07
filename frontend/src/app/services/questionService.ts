@@ -17,6 +17,20 @@ export interface Question {
 export interface QuestionFilters {
   topics?: string[];
   difficulty?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface QuestionsResponse {
+  count: number;
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  questions: Question[];
 }
 
 export interface TopicsResponse {
@@ -57,13 +71,22 @@ function buildQuestionFormData(data: Partial<CreateQuestionData>) {
   return formData;
 }
 
-export async function getQuestions(filters?: QuestionFilters): Promise<{ count: number; questions: Question[] }> {
+export async function getQuestions(filters?: QuestionFilters): Promise<QuestionsResponse> {
   const params: Record<string, string> = {};
   if (filters?.topics && filters.topics.length > 0) {
     params.topics = filters.topics.join(',');
   }
   if (filters?.difficulty) {
     params.difficulty = filters.difficulty;
+  }
+  if (filters?.search) {
+    params.search = filters.search;
+  }
+  if (filters?.page) {
+    params.page = String(filters.page);
+  }
+  if (filters?.pageSize) {
+    params.pageSize = String(filters.pageSize);
   }
   const response = await apiClient.get('/questions', { params });
   return response.data;

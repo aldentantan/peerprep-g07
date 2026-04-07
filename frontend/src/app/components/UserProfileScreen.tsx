@@ -2,41 +2,78 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Badge } from "@/app/components/ui/badge";
-import { User, Mail, Award, Code, Save, Shield, Lock, Crown, Trash2, AlertTriangle } from "lucide-react";
-import { useState, useEffect } from "react";
-import { getProfile, updateProfile } from "@/app/services/authService";
+import {
+  User,
+  Mail,
+  Award,
+  Code,
+  Save,
+  Shield,
+  Lock,
+  Crown,
+  Trash2,
+  AlertTriangle,
+} from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { getProfile, updateProfile, changePassword, deleteAccount } from "@/app/services/authService";
+import { getMyAttemptHistory, type AttemptHistoryEntry } from "@/app/services/attemptHistoryService";
+import { AttemptHistoryPanel } from "@/app/components/AttemptHistoryPanel";
+
+const formatTimestamp = (timestamp: string) => {
+  try {
+    return new Date(timestamp).toLocaleString();
+  } catch {
+    return timestamp;
+  }
+};
 
 export function UserProfileScreen() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
+  const [profileImageUrl, setProfileImageUrl] = useState("");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [attemptsLoading, setAttemptsLoading] = useState(true);
+  const [attempts, setAttempts] = useState<AttemptHistoryEntry[]>([]);
   const [error, setError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchProfileAndHistory = async () => {
       try {
-        const profile = await getProfile();
+        const [profile, attemptHistory] = await Promise.all([
+          getProfile(),
+          getMyAttemptHistory(),
+        ]);
         setUsername(profile.username);
         setEmail(profile.email);
         setRole(profile.access_role || "user");
+        setAttempts(attemptHistory.attempts);
+        setProfileImageUrl(profile.profile_image_url || "");
       } catch (err: any) {
         setError("Failed to load profile");
       } finally {
         setIsLoading(false);
+        setAttemptsLoading(false);
       }
     };
-    fetchProfile();
+
+    fetchProfileAndHistory();
   }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
     setSaveMessage("");
     try {
-      await updateProfile(username);
+      await updateProfile({ username, profile_image: selectedImage || undefined });
       setSaveMessage("Profile updated successfully!");
     } catch (err: any) {
       setSaveMessage(err.response?.data?.error || "Failed to update profile");
@@ -46,9 +83,64 @@ export function UserProfileScreen() {
   };
 
   const handleDeleteAccount = () => {
-    alert("Account deletion requested. In a real app, this would delete your account.");
+    deleteAccount();
     setShowDeleteConfirm(false);
+    // refresh page to trigger logout and redirect to login screen
+    window.location.reload();
+
   };
+
+  const handleChangePassword = async () => {
+    setIsSaving(true);
+    setPasswordMessage("");
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setPasswordMessage("Please fill in all password fields");
+      setIsSaving(false);
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordMessage("New passwords do not match");
+      setIsSaving(false);
+      return;
+    }
+    try {
+      await changePassword(currentPassword, newPassword);
+      setPasswordMessage("Password changed successfully!");
+      setIsChangingPassword(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (err: any) {
+      setPasswordMessage(err.response?.data?.error || "Failed to change password");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  const handleCancel = () => {
+    try {      // Revert to original profile data
+      const fetchProfile = async () => {
+        const profile = await getProfile();
+        setUsername(profile.username);
+        setEmail(profile.email);
+        setRole(profile.access_role || "user");
+        setProfileImageUrl(profile.profile_image_url || "");
+        setSelectedImage(null);
+      };
+      fetchProfile();
+      setSaveMessage("Changes reverted successfully!");
+    } catch (err: any) {
+      setSaveMessage("Failed to revert changes");
+    }
+  };
+
+  const totalQuestionsAttempted = useMemo(() => {
+    return new Set(attempts.map((attempt) => attempt.question.id)).size;
+  }, [attempts]);
+
+  const archivedAttempts = useMemo(() => {
+    return attempts.filter((attempt) => attempt.question.archived).length;
+  }, [attempts]);
 
   if (isLoading) {
     return <div className="text-center py-12 text-gray-500">Loading profile...</div>;
@@ -56,7 +148,6 @@ export function UserProfileScreen() {
 
   return (
     <div className="space-y-6">
-      {/* Profile Header Banner */}
       <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg p-4 text-white shadow-lg">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
@@ -64,28 +155,47 @@ export function UserProfileScreen() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">User Profile</h1>
-            <p className="text-purple-100 text-sm">Manage your account settings</p>
+            <p className="text-purple-100 text-sm">Manage your account settings and attempt history</p>
           </div>
         </div>
       </div>
 
+      {error && (
+        <div className="border-2 border-red-300 rounded-lg bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
         <div className="border-4 border-gray-300 rounded-lg p-6 bg-white space-y-4">
           <div className="text-center space-y-4">
-            {/* Avatar Placeholder */}
             <div className="w-32 h-32 mx-auto border-4 border-gray-400 rounded-full flex items-center justify-center bg-gray-100">
-              <User className="w-16 h-16 text-gray-400" />
+              {profileImageUrl ? (
+                <img src={profileImageUrl} className="w-full h-full object-cover rounded-full" />
+              ) : (
+                <User className="w-16 h-16 text-gray-400" />
+              )}
             </div>
-            
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              id="profile-image-upload"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setSelectedImage(file);
+                  setProfileImageUrl(URL.createObjectURL(file));
+                }
+              }}
+            />
             <div>
-              <Button variant="outline" className="mt-2 border-2 border-gray-300">
+              <Button variant="outline" className="mt-2 border-2 border-gray-300" onClick={() => document.getElementById('profile-image-upload')?.click()}>
                 Upload Photo
               </Button>
             </div>
           </div>
 
-          {/* Role Badge */}
           <div className="pt-4 border-t-2 border-gray-200">
             <div className="mt-2 space-y-2">
               {role === "root-admin" && (
@@ -98,7 +208,7 @@ export function UserProfileScreen() {
                     <p className="font-semibold mb-1">Permissions:</p>
                     <ul className="list-disc list-inside space-y-1 text-[11px]">
                       <li>All admin permissions</li>
-                      <li>Promote/demote users</li>
+                      <li>Promote or demote users</li>
                       <li>Manage all accounts</li>
                     </ul>
                   </div>
@@ -113,7 +223,7 @@ export function UserProfileScreen() {
                   <div className="text-xs text-gray-600 mt-2">
                     <p className="font-semibold mb-1">Permissions:</p>
                     <ul className="list-disc list-inside space-y-1 text-[11px]">
-                      <li>Create/edit/delete questions</li>
+                      <li>Create, edit, and delete questions</li>
                       <li>View questions</li>
                       <li>Join matching queue</li>
                       <li>Collaborate in sessions</li>
@@ -139,7 +249,6 @@ export function UserProfileScreen() {
             </div>
           </div>
 
-          {/* Delete Account Button - hidden for root-admin */}
           {role !== "root-admin" && (
             <div className="pt-4 border-t-2 border-gray-200">
               <Button
@@ -151,7 +260,6 @@ export function UserProfileScreen() {
                 Delete Account
               </Button>
 
-              {/* Delete Confirmation */}
               {showDeleteConfirm && (
                 <div className="pt-4 border-t-2 border-gray-200">
                   <div className="flex items-center gap-2">
@@ -182,17 +290,16 @@ export function UserProfileScreen() {
           )}
         </div>
 
-        {/* Profile Details */}
         <div className="lg:col-span-2 border-4 border-gray-300 rounded-lg p-6 bg-white space-y-6">
           <h2 className="text-xl font-semibold text-gray-800">Profile Information</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="username" className="text-gray-700">Username</Label>
-              <Input 
-                id="username" 
+              <Input
+                id="username"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(event) => setUsername(event.target.value)}
                 className="border-2 border-gray-300"
               />
             </div>
@@ -201,8 +308,8 @@ export function UserProfileScreen() {
               <Label htmlFor="email" className="text-gray-700">Email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input 
-                  id="email" 
+                <Input
+                  id="email"
                   type="email"
                   value={email}
                   disabled
@@ -213,7 +320,7 @@ export function UserProfileScreen() {
 
             <div className="space-y-2">
               <Label htmlFor="language" className="text-gray-700">Preferred Language</Label>
-              <select 
+              <select
                 id="language"
                 defaultValue="JavaScript"
                 className="w-full h-10 px-3 border-2 border-gray-300 rounded-md bg-white"
@@ -226,7 +333,6 @@ export function UserProfileScreen() {
             </div>
           </div>
 
-          {/* Topics of Interest */}
           <div className="space-y-2">
             <Label className="text-gray-700 flex items-center gap-2">
               <Code className="h-4 w-4" />
@@ -242,42 +348,136 @@ export function UserProfileScreen() {
                   + Add Topic
                 </Button>
               </div>
+          </div>
+
+          {/* Change Password Section */}
+          <div className="pt-4 border-t-2 border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-800">Change Password</h2>
+              <Button
+                variant="outline"
+                className="border-2 border-gray-300"
+                onClick={() => setIsChangingPassword(!isChangingPassword)}
+              >
+                {isChangingPassword ? "Cancel" : "Change Password"}
+              </Button>
+            </div>
+
+            {isChangingPassword && (
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password" className="text-gray-700">Current Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input 
+                      id="current-password" 
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="pl-10 border-2 border-gray-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-password" className="text-gray-700">New Password</Label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input 
+                      id="new-password" 
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="pl-10 border-2 border-gray-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-new-password" className="text-gray-700">Confirm New Password</Label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input 
+                      id="confirm-new-password" 
+                      type="password"
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      className="pl-10 border-2 border-gray-300"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleChangePassword}
+                  disabled={isSaving}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSaving ? 'Saving...' : 'Save New Password'}
+                </Button>
+
+                {passwordMessage && (
+                  <p className={`text-sm ${passwordMessage.includes('success') ? 'text-green-600' : 'text-red-600'}`}>
+                    {passwordMessage}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 pt-4 border-t-2 border-gray-200">
+            <div className="text-center p-3 border-2 border-gray-300 rounded-lg">
+              <div className="text-2xl font-bold text-gray-900">{attempts.length}</div>
+              <div className="text-xs text-gray-600">Attempts Logged</div>
+            </div>
+            <div className="text-center p-3 border-2 border-gray-300 rounded-lg">
+              <div className="text-2xl font-bold text-gray-900">{totalQuestionsAttempted}</div>
+              <div className="text-xs text-gray-600">Questions Attempted</div>
+            </div>
+            <div className="text-center p-3 border-2 border-gray-300 rounded-lg">
+              <div className="text-2xl font-bold text-gray-900">{archivedAttempts}</div>
+              <div className="text-xs text-gray-600">Archived Snapshots</div>
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t-2 border-gray-200">
-            <div className="text-center p-3 border-2 border-gray-300 rounded-lg">
-              <div className="text-2xl font-bold text-gray-900">24</div>
-              <div className="text-xs text-gray-600">Sessions</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+              <div className="text-sm text-gray-600">Latest Activity</div>
+              <div className="text-sm font-semibold text-gray-900">
+                {attempts[0] ? formatTimestamp(attempts[0].submittedAt) : "No attempts yet"}
+              </div>
             </div>
-            <div className="text-center p-3 border-2 border-gray-300 rounded-lg">
-              <div className="text-2xl font-bold text-gray-900">18</div>
-              <div className="text-xs text-gray-600">Problems Solved</div>
-            </div>
-            <div className="text-center p-3 border-2 border-gray-300 rounded-lg">
-              <div className="text-2xl font-bold text-gray-900">92%</div>
-              <div className="text-xs text-gray-600">Match Success</div>
+            <div className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+              <div className="text-sm text-gray-600">Code Snapshots Saved</div>
+              <div className="text-2xl font-bold text-gray-900">{attempts.length}</div>
             </div>
           </div>
 
           {saveMessage && (
-            <p className={`text-sm ${saveMessage.includes('success') ? 'text-green-600' : 'text-red-600'}`}>
+            <p className={`text-sm ${saveMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
               {saveMessage}
             </p>
           )}
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" className="border-2 border-gray-300">
+            <Button variant="outline" className="border-2 border-gray-300" onClick={handleCancel} disabled={isSaving}> 
               Cancel
             </Button>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSave} disabled={isSaving}>
               <Save className="mr-2 h-4 w-4" />
-              {isSaving ? 'Saving...' : 'Save Changes'}
+              {isSaving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </div>
       </div>
+    </div>
+
+      <AttemptHistoryPanel
+        attempts={attempts}
+        attemptsLoading={attemptsLoading}
+        title="Attempt History"
+        emptyMessage="No attempts recorded yet. Your saved collaboration submissions will appear here."
+      />
     </div>
   );
 }
