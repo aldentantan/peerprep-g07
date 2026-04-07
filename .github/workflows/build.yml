@@ -50,6 +50,14 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
         working-directory: frontend
+
+      - name: Install code-execution-service dependencies
+        run: npm install
+        working-directory: code-execution-service
+
+      - name: Install attempt-history-service dependencies
+        run: npm install
+        working-directory: attempt-history-service
       # Step 4: Run build command
       - name: Run build
         run: npm run build
