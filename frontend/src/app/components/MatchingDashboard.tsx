@@ -26,6 +26,7 @@ import { Button } from "../../app/components/ui/button";
 import { Label } from "../../app/components/ui/label";
 import { getTopics } from "../services/questionService";
 import { extractApiErrorMessage } from "../utils/apiError";
+import { getProfileByUsername, UserProfile } from "../services/authService";
 
 type MatchingState =
   | "idle"
@@ -89,6 +90,7 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
   const [matchData, setMatchData] = useState<MatchInfo | null>(null);
   const [pendingMatchData, setPendingMatchData] = useState<PendingMatchInfo | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [peerUserProfile, setPeerUserProfile] = useState<UserProfile | null>(null);
   const [hasAcceptedMatch, setHasAcceptedMatch] = useState(false);
   const [matchAcceptTimeRemaining, setMatchAcceptTimeRemaining] = useState(MATCH_ACCEPT_TIMEOUT_SECONDS);
   const [pendingAcceptTimeoutSeconds, setPendingAcceptTimeoutSeconds] = useState(5);
@@ -466,6 +468,14 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
   }, [matchingState, onMatchingStateChange]);
 
   useEffect(() => {
+    if (matchedPeerId) {
+      getProfileByUsername(matchedPeerId).then(setPeerUserProfile);
+    } else {
+      setPeerUserProfile(null);
+    }
+  }, [matchedPeerId]);
+
+  useEffect(() => {
     if (matchingState === "idle") {
       setShowWarning(false);
     }
@@ -753,11 +763,19 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
               <div className="p-6 bg-green-50 border-2 border-green-200 rounded-lg">
                 <div className="flex items-center justify-center gap-4 mb-4">
                   <div className="w-16 h-16 border-3 border-gray-400 rounded-full flex items-center justify-center bg-gray-100">
-                    <Users className="w-8 h-8 text-gray-400" />
+                    {peerUserProfile?.profile_image_url ? (
+                      <img
+                        src={peerUserProfile.profile_image_url}
+                        alt="Profile"
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    ) : (
+                      <Users className="w-8 h-8 text-gray-400" />
+                    )}
                   </div>
                   <div className="text-left">
                     <div className="font-semibold text-gray-900 text-lg">
-                      {matchedPeerId || "Matched User"}
+                      {peerUserProfile?.username || matchedPeerId || "Matched User"}
                     </div>
                     <div className="text-sm text-gray-600">Online now</div>
                   </div>

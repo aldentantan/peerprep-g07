@@ -7,6 +7,7 @@ import {
   updateUserPassword,
   deleteUser,
   getUserByEmail,
+  getUserByUsername,
   updateUserRoleByEmail,
   getAllUsers,
 } from "../controllers/user-controller.js";
@@ -42,6 +43,7 @@ router.patch(
 router.delete("/me", verifyAccessToken, deleteUser);
 
 router.get('/by-email/:email', verifyAccessToken, getUserByEmail);
+router.get("/by-username/:username", verifyAccessToken, getUserByUsername);
 
 // Admin-only routes
 router.get('/all', verifyAccessToken, verifyIsRootAdmin, getAllUsers);

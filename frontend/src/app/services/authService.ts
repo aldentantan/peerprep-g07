@@ -71,6 +71,11 @@ export async function getProfile(): Promise<UserProfile> {
   return response.data;
 }
 
+export async function getProfileByUsername(username: string): Promise<UserProfile> {
+  const response = await apiClient.get(`/users/by-username/${encodeURIComponent(username)}`);
+  return response.data;
+}
+
 export async function updateProfile(userData: Partial<UserProfileUpdateData>) {
   const formData = new FormData();
   if (userData.username !== undefined) formData.append('username', userData.username);

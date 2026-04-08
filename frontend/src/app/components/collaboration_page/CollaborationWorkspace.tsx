@@ -15,6 +15,7 @@ import {
 import { getQuestionById } from "@/app/services/questionService";
 import { AttemptHistoryPanel } from "@/app/components/AttemptHistoryPanel";
 import { toTitleCase } from "@/app/utils/titleCase";
+import { getProfileByUsername, UserProfile } from "@/app/services/authService";
 
 const languageMap: Record<string, string> = {
   javascript: "JavaScript",
@@ -67,6 +68,7 @@ type Participant = {
   name: string;
   status: string;
   isCurrentUser: boolean;
+  profileImageUrl?: string;
 };
 
 type JwtPayload = {
@@ -92,6 +94,7 @@ export function CollaborationWorkspace() {
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [isSubmittingAttempt, setIsSubmittingAttempt] = useState(false);
   const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
+  const [participantsProfiles, setParticipantsProfiles] = useState<Record<string, UserProfile>>({});
 
   // Code execution state
   const [isRunning, setIsRunning] = useState(false);
@@ -163,12 +166,13 @@ export function CollaborationWorkspace() {
 
       const isCurrentUser = currentUserIdentifiers.has(participantId);
       const fallbackName = isCurrentUser ? username : participantId;
-
+      const profileImageUrl = participantsProfiles[participantId]?.profile_image_url;
       participantList.push({
         id: participantId,
         name: fallbackName,
         status: "in room",
         isCurrentUser,
+        profileImageUrl,
       });
       addedIds.add(participantId);
     });
@@ -179,11 +183,13 @@ export function CollaborationWorkspace() {
         name: username,
         status: "online",
         isCurrentUser: true,
+        profileImageUrl: participantsProfiles[username]?.profile_image_url,
+
       });
     }
 
     return participantList;
-  }, [roomData, currentUserIdentifiers, username]);
+  }, [roomData, currentUserIdentifiers, username, participantsProfiles]);
 
   const displayTopics = useMemo(() => {
     if (!roomData) {
@@ -383,6 +389,28 @@ export function CollaborationWorkspace() {
       setIsSubmittingAttempt(false);
     }
   };
+
+  useEffect(() => {
+    if (roomData) {
+      const fetchParticipantProfiles = async () => {
+        const profiles: Record<string, UserProfile> = {};
+        // Fetch profiles for all participants in parallel
+        await Promise.all((roomData.participantUserIds?.map(async (participantId) => {
+          try {
+            const profile = await getProfileByUsername(participantId);
+            profiles[participantId] = profile;
+          } catch (error) {
+            console.error(`Failed to fetch profile for user: ${participantId}`, error);
+          }
+        }) || []));
+
+        setParticipantsProfiles(profiles);
+      };
+
+      fetchParticipantProfiles();
+    }
+  }, [roomData]);
+
 
   // Execute code via the code-execution service.
   const executeCode = useCallback(async (code: string, language: string, stdin?: string) => {
@@ -631,7 +659,14 @@ export function CollaborationWorkspace() {
             {participants.map((user) => (
               <div key={user.id} className="flex items-center gap-3 p-3 border-2 border-gray-300 rounded-lg bg-gray-50">
                 <div className="w-10 h-10 border-2 border-gray-400 rounded-full flex items-center justify-center bg-white flex-shrink-0">
-                  <User className="w-5 h-5 text-gray-400" />
+                  {user.profileImageUrl ? (
+                    <img
+                      src={user.profileImageUrl}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-5 h-5 text-gray-400" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

@@ -1,5 +1,6 @@
 export function mapUserToView(user) {
   return {
+    id: user.id,
     email: user.email,
     username: user.username,
     access_role: user.access_role,
