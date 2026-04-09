@@ -21,7 +21,6 @@ import {
   updateQuestion,
   type Question,
 } from "@/app/services/questionService";
-import { extractApiErrorMessage } from "@/app/utils/apiError";
 
 interface EditQuestionScreenProps {
   question: Question;
@@ -82,7 +81,7 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
         if (isMounted) {
           setAvailableTopics(data.topics);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (isMounted) {
           setTopicsError(err.response?.data?.error || "Failed to load topics");
         }
@@ -201,7 +200,7 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
       });
       if (onSave) onSave();
       onBack();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getQuestionRequestErrorMessage(err, "Failed to update question"));
     } finally {
       setIsLoading(false);

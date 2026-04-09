@@ -20,7 +20,6 @@ import {
   getQuestionRequestErrorMessage,
   getTopics,
 } from "@/app/services/questionService";
-import { extractApiErrorMessage } from "@/app/utils/apiError";
 
 interface AddQuestionScreenProps {
   onBack: () => void;
@@ -74,7 +73,7 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
         if (isMounted) {
           setAvailableTopics(data.topics);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (isMounted) {
           setTopicsError(err.response?.data?.error || "Failed to load topics");
         }
@@ -186,7 +185,7 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
       });
       if (onSave) onSave();
       onBack();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getQuestionRequestErrorMessage(err, "Failed to create question"));
     } finally {
       setIsLoading(false);

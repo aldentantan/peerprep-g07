@@ -2,7 +2,7 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Badge } from "@/app/components/ui/badge";
-import { User, Mail, Lock, Save, Shield, Crown, Trash2, AlertTriangle, Code } from "lucide-react";
+import { User, Mail, Lock, Save, Shield, Crown, Trash2, AlertTriangle } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { getProfile, updateProfile, changePassword, deleteAccount } from "@/app/services/authService";
 import { getMyAttemptHistory, type AttemptHistoryEntry } from "@/app/services/attemptHistoryService";
