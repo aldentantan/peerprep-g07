@@ -311,39 +311,9 @@ export function UserProfileScreen() {
                 />
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="language" className="text-gray-700">Preferred Language</Label>
-              <select
-                id="language"
-                defaultValue="JavaScript"
-                className="w-full h-10 px-3 border-2 border-gray-300 rounded-md bg-white"
-              >
-                <option>JavaScript</option>
-                <option>Python</option>
-                <option>Java</option>
-                <option>C++</option>
-              </select>
-            </div>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-gray-700 flex items-center gap-2">
-              <Code className="h-4 w-4" />
-              Topics of Interest
-            </Label>
-            <div className="border-2 border-gray-300 rounded-lg p-4 min-h-[100px]">
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary" className="border border-gray-300">Algorithms</Badge>
-                <Badge variant="secondary" className="border border-gray-300">Data Structures</Badge>
-                <Badge variant="secondary" className="border border-gray-300">Dynamic Programming</Badge>
-                <Badge variant="secondary" className="border border-gray-300">System Design</Badge>
-                <Button variant="outline" size="sm" className="border-2 border-dashed border-gray-400">
-                  + Add Topic
-                </Button>
-              </div>
-          </div>
-
           {/* Change Password Section */}
           <div className="pt-4 border-t-2 border-gray-200">
             <div className="flex items-center justify-between">

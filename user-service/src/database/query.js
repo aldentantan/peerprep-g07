@@ -39,6 +39,14 @@ export async function getUserById(id) {
   return result.rows[0];
 }
 
+export async function getUserByUsername(username) {
+  const result = await query(
+    "SELECT id, email, username, hashed_password, access_role, created_at, profile_image_url FROM users WHERE username = $1",
+    [username],
+  );
+  return result.rows[0];
+}
+
 export async function updateUser(email, username, profile_image_url) {
   const result = await query(
     "UPDATE users SET username = $1, profile_image_url = $2 WHERE email = $3 RETURNING id, email, username, profile_image_url, access_role, created_at",

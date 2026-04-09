@@ -58,6 +58,22 @@ router.patch('/me/password', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/users/by-username/:username → user-service GET /users/by-username/:username
+// Get user by username
+router.get('/by-username/:username', verifyToken, async (req, res) => {
+  try {
+    const response = await axios.get(`${USER_SERVICE_URL}/users/by-username/${encodeURIComponent(req.params.username)}`, {
+      headers: { Authorization: `Bearer ${req.token}` },
+    });
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+    return res.status(500).json({ error: 'User service unavailable' });
+  }
+});
+
 // GET /api/users/all → user-service GET /users/all (root-admin only) 
 // Get all users
 router.get('/all', verifyToken, async (req, res) => {
