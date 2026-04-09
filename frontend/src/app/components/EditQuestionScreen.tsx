@@ -14,8 +14,8 @@ import {
   Plus,
   Trash2
 } from "lucide-react";
-import { useRef, useState, type ChangeEvent } from "react";
-import { updateQuestion, type Question } from "@/app/services/questionService";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { getTopics, updateQuestion, type Question } from "@/app/services/questionService";
 
 interface EditQuestionScreenProps {
   question: Question;
@@ -23,14 +23,33 @@ interface EditQuestionScreenProps {
   onSave?: () => void;
 }
 
+const MAX_QUESTION_IMAGES = 5;
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+const formatImageSize = (sizeInBytes: number) => `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
+
+const getOversizedImagesMessage = (images: File[]) => {
+  const imageNames = images.map((image) => `${image.name} (${formatImageSize(image.size)})`).join(", ");
+
+  return images.length === 1
+    ? `${imageNames} exceeds the 5 MB image limit.`
+    : `${imageNames} exceed the 5 MB image limit.`;
+};
+
 export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScreenProps) {
   const [title, setTitle] = useState(question.title);
   const [description, setDescription] = useState(question.description);
   const [difficulty, setDifficulty] = useState(question.difficulty);
-  const [topic, setTopic] = useState(question.topics[0] || "Arrays");
+  const [selectedTopics, setSelectedTopics] = useState<string[]>(() =>
+    question.topics.length > 0 ? [...question.topics] : []
+  );
+  const [availableTopics, setAvailableTopics] = useState<string[]>(() => [...question.topics]);
+  const [topicsError, setTopicsError] = useState("");
+  const [isLoadingTopics, setIsLoadingTopics] = useState(false);
   const [leetcodeLink, setLeetcodeLink] = useState(question.leetcodeLink || "");
   const [existingImageUrls, setExistingImageUrls] = useState(question.imageUrls || []);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imageError, setImageError] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [testCases, setTestCases] = useState(
@@ -41,21 +60,39 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const difficulties = ["Easy", "Medium", "Hard"];
-  const topics = [
-    "Arrays",
-    "Strings",
-    "Linked Lists",
-    "Trees",
-    "Graphs",
-    "Dynamic Programming",
-    "Sorting",
-    "Searching",
-    "Hash Tables",
-    "Stacks & Queues",
-    "Recursion",
-    "Greedy Algorithms",
-    "System Design",
-  ];
+  const selectableTopics = Array.from(new Set([...availableTopics, ...selectedTopics]));
+  const totalImageCount = existingImageUrls.length + selectedImages.length;
+  const canAddMoreImages = totalImageCount < MAX_QUESTION_IMAGES;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTopics = async () => {
+      setIsLoadingTopics(true);
+      setTopicsError("");
+
+      try {
+        const data = await getTopics();
+        if (isMounted) {
+          setAvailableTopics(data.topics);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          setTopicsError(err.response?.data?.error || "Failed to load topics");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingTopics(false);
+        }
+      }
+    };
+
+    loadTopics();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleAddTestCase = () => {
     setTestCases([...testCases, { input: "", expectedOutput: "" }]);
@@ -72,18 +109,57 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
     setTestCases(updated);
   };
 
+  const handleTopicToggle = (topic: string) => {
+    setSelectedTopics((currentTopics) =>
+      currentTopics.includes(topic)
+        ? currentTopics.filter((currentTopic) => currentTopic !== topic)
+        : [...currentTopics, topic]
+    );
+  };
+
   const handleImageSelection = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null;
-    setSelectedImage(file);
-    if (file) {
-      setExistingImageUrls([]);
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) {
+      return;
     }
+
+    const remainingSlots = MAX_QUESTION_IMAGES - existingImageUrls.length - selectedImages.length;
+    if (remainingSlots <= 0) {
+      setImageError(`You can keep or upload up to ${MAX_QUESTION_IMAGES} images per question.`);
+      event.target.value = "";
+      return;
+    }
+
+    const oversizedImages = files.filter((file) => file.size > MAX_IMAGE_SIZE_BYTES);
+    const validImages = files.filter((file) => file.size <= MAX_IMAGE_SIZE_BYTES);
+
+    if (validImages.length === 0) {
+      setImageError(getOversizedImagesMessage(oversizedImages));
+      event.target.value = "";
+      return;
+    }
+
+    const filesToAdd = validImages.slice(0, remainingSlots);
+    const errors = [
+      oversizedImages.length > 0 ? getOversizedImagesMessage(oversizedImages) : "",
+      validImages.length > remainingSlots
+        ? `Only ${remainingSlots} more image${remainingSlots === 1 ? "" : "s"} can be added.`
+        : "",
+    ].filter(Boolean);
+
+    setSelectedImages((currentImages) => [...currentImages, ...filesToAdd]);
+    setImageError(errors.join(" "));
     event.target.value = "";
   };
 
-  const removeImage = () => {
-    setSelectedImage(null);
-    setExistingImageUrls([]);
+  const removeExistingImage = (index: number) => {
+    setExistingImageUrls((currentUrls) => currentUrls.filter((_, imageIndex) => imageIndex !== index));
+    setImageError("");
+  };
+
+  const removeSelectedImage = (index: number) => {
+    setSelectedImages((currentImages) => currentImages.filter((_, imageIndex) => imageIndex !== index));
+    setImageError("");
   };
 
   const handleSave = async () => {
@@ -92,22 +168,31 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
       setError("Title and description are required");
       return;
     }
+    if (selectedTopics.length === 0) {
+      setError("Select at least one topic");
+      return;
+    }
+    if (totalImageCount > MAX_QUESTION_IMAGES) {
+      setError(`Keep or upload up to ${MAX_QUESTION_IMAGES} images per question`);
+      setImageError(`Remove ${totalImageCount - MAX_QUESTION_IMAGES} image${totalImageCount - MAX_QUESTION_IMAGES === 1 ? "" : "s"} before saving.`);
+      return;
+    }
     setIsLoading(true);
     try {
       await updateQuestion(question.questionId, {
         title,
         description,
         difficulty,
-        topics: [topic],
+        topics: selectedTopics,
         testCases: testCases.map((tc) => ({ input: tc.input, output: tc.expectedOutput })),
         leetcodeLink: leetcodeLink || undefined,
         existingImageUrls,
-        imageFiles: selectedImage ? [selectedImage] : undefined,
+        imageFiles: selectedImages.length > 0 ? selectedImages : undefined,
       });
       if (onSave) onSave();
       onBack();
     } catch (err: any) {
-      setError(err.response?.data?.error || err.response?.data?.message || "Failed to update question");
+      setError(err.response?.data?.message || err.response?.data?.error || "Failed to update question");
     } finally {
       setIsLoading(false);
     }
@@ -209,23 +294,47 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
                 </div>
               </div>
 
-              {/* Topic */}
-              <div className="space-y-2">
-                <Label htmlFor="topic" className="text-gray-700 font-medium">
-                  Topic <span className="text-red-500">*</span>
+              {/* Topics */}
+              <div className="space-y-2 md:col-span-2">
+                <Label className="text-gray-700 font-medium">
+                  Topics <span className="text-red-500">*</span>
                 </Label>
-                <select
-                  id="topic"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  className="w-full h-11 px-3 border-2 border-gray-300 rounded-md bg-white"
-                >
-                  {topics.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                {isLoadingTopics && (
+                  <p className="text-sm text-gray-500">Loading topics...</p>
+                )}
+                {topicsError && (
+                  <p className="text-sm text-red-600">{topicsError}</p>
+                )}
+                {selectableTopics.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {selectableTopics.map((topicOption) => {
+                      const isSelected = selectedTopics.includes(topicOption);
+
+                      return (
+                        <label
+                          key={topicOption}
+                          className={
+                            isSelected
+                              ? "flex cursor-pointer items-center gap-2 rounded-md border-2 border-purple-500 bg-purple-50 px-3 py-2 text-sm font-medium text-purple-800"
+                              : "flex cursor-pointer items-center gap-2 rounded-md border-2 border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+                          }
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleTopicToggle(topicOption)}
+                            className="h-4 w-4 accent-purple-600"
+                          />
+                          <span className="break-words">{topicOption}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  !isLoadingTopics && (
+                    <p className="text-sm text-gray-500">No topics available.</p>
+                  )
+                )}
               </div>
 
               {/* LeetCode Link */}
@@ -248,74 +357,106 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
           <div className="pt-6 border-t-2 border-gray-200">
             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <ImageIcon className="w-5 h-5 text-purple-600" />
-              Question Image (Optional)
+              Question Images (Optional)
             </h2>
             <div className="space-y-3">
               <p className="text-sm text-gray-600">
-                Upload a diagram or visual representation for this question
+                Keep existing images or add more visual references for this question
               </p>
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/png,image/jpeg,image/gif,image/webp"
+                multiple
                 className="hidden"
                 onChange={handleImageSelection}
               />
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                {selectedImage || existingImageUrls.length > 0 ? (
+                <div className="space-y-4">
                   <div className="space-y-3">
-                    <div className="w-20 h-20 mx-auto bg-green-100 rounded-lg flex items-center justify-center">
-                      <ImageIcon className="w-10 h-10 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {selectedImage ? selectedImage.name : "Current uploaded image"}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {selectedImage
-                          ? `${Math.max(1, Math.round(selectedImage.size / 1024))} KB`
-                          : `${existingImageUrls.length} saved image${existingImageUrls.length === 1 ? "" : "s"}`}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-gray-300"
-                      >
-                        <Upload className="mr-2 h-4 w-4" />
-                        Replace
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={removeImage}
-                        className="border-2 border-gray-300"
-                      >
-                        <X className="mr-2 h-4 w-4" />
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="w-16 h-16 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
-                      <Upload className="w-8 h-8 text-gray-400" />
-                    </div>
+                    {totalImageCount === 0 && (
+                      <div className="w-16 h-16 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
+                        <Upload className="w-8 h-8 text-gray-400" />
+                      </div>
+                    )}
                     <div>
                       <Button
                         variant="outline"
                         onClick={() => fileInputRef.current?.click()}
+                        disabled={!canAddMoreImages}
                         className="border-2 border-gray-300"
                       >
                         <Upload className="mr-2 h-4 w-4" />
-                        Upload Image
+                        {totalImageCount > 0 ? "Add Images" : "Upload Images"}
                       </Button>
-                      <p className="text-xs text-gray-500 mt-2">PNG, JPG or SVG (max 5MB)</p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        PNG, JPG, GIF or WEBP (max 5MB each). {totalImageCount}/{MAX_QUESTION_IMAGES} kept or selected.
+                      </p>
                     </div>
                   </div>
-                )}
+
+                  {imageError && (
+                    <p className="text-sm text-red-600">{imageError}</p>
+                  )}
+
+                  {totalImageCount > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-left">
+                      {existingImageUrls.map((imageUrl, index) => (
+                        <div
+                          key={`${imageUrl}-${index}`}
+                          className="flex items-center justify-between gap-3 rounded-md border-2 border-gray-200 bg-white p-3"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <img
+                              src={imageUrl}
+                              alt={`Saved question image ${index + 1}`}
+                              className="h-10 w-10 shrink-0 rounded-md bg-gray-100 object-cover"
+                            />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-900">Saved image {index + 1}</p>
+                              <p className="truncate text-xs text-gray-500">{imageUrl}</p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeExistingImage(index)}
+                            className="shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+
+                      {selectedImages.map((image, index) => (
+                        <div
+                          key={`${image.name}-${image.lastModified}-${index}`}
+                          className="flex items-center justify-between gap-3 rounded-md border-2 border-gray-200 bg-white p-3"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-green-100">
+                              <ImageIcon className="h-5 w-5 text-green-600" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-gray-900">{image.name}</p>
+                              <p className="text-xs text-gray-500">
+                                New image - {Math.max(1, Math.round(image.size / 1024))} KB
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeSelectedImage(index)}
+                            className="shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
