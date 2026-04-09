@@ -1,5 +1,14 @@
 import { randomUUID } from "crypto";
 import { WebSocket } from "ws";
+import {
+  LUA_ACCEPT_PENDING_MATCH,
+  LUA_CANCEL_IF_QUEUED,
+  LUA_CLEANUP_TIMEOUT_IF_QUEUED,
+  LUA_CREATE_PENDING_MATCH,
+  LUA_ENQUEUE_IF_ABSENT,
+  LUA_EXPIRE_PENDING_MATCH_IF_UNCHANGED,
+  LUA_FINALIZE_PENDING_MATCH,
+} from "../lua-scripts/luaScripts";
 import { collabRedis } from "../redis/collabRedisClient";
 import { redis } from "../redis/redisClient";
 import {
@@ -19,19 +28,10 @@ import {
   Topic,
 } from "../types";
 import { toQueueKey } from "../utils";
-import {
-  LUA_ACCEPT_PENDING_MATCH,
-  LUA_CANCEL_IF_QUEUED,
-  LUA_CREATE_PENDING_MATCH,
-  LUA_ENQUEUE_IF_ABSENT,
-  LUA_EXPIRE_PENDING_MATCH_IF_UNCHANGED,
-  LUA_FINALIZE_PENDING_MATCH,
-  LUA_CLEANUP_TIMEOUT_IF_QUEUED,
-} from "../lua-scripts/luaScripts";
 
 // const TIMEOUT_MS = 2 * 60 * 1000; // in ms for production
 const TIMEOUT_MS = 30 * 1000; // in ms for testing
-const PENDING_ACCEPT_TIMEOUT_MS = 15 * 1000;
+const PENDING_ACCEPT_TIMEOUT_MS = 20 * 1000;
 
 type QueuedUserState = {
   enqueuedAt: number;
@@ -220,11 +220,7 @@ function parsePendingMatchState(rawState: string): PendingMatchState | null {
   }
 }
 
-export async function handleMatchEvent(channel: string, rawMessage: string) {
-  if (channel !== "match.events") {
-    return;
-  }
-
+export async function handleMatchEvent(rawMessage: string) {
   let event: PendingMatch;
   try {
     event = JSON.parse(rawMessage) as PendingMatch;
@@ -470,7 +466,7 @@ async function createRoomForAcceptedMatch(
   const roomId = randomUUID();
 
   // initialUserIds is for tracking which users were part of the match at the time of room creation
-  // participantUserIds is for tracking the current users in the room 
+  // participantUserIds is for tracking the current users in the room
   // both uses username instead of userId even though it is named userId
   await collabRedis.hset(`room:${roomId}`, {
     programmingLanguage: state.language,

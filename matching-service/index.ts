@@ -2,7 +2,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { cleanupTimedOutUsers, reconcilePendingMatches } from './src/controllers/matchingController';
 import { pollAllQueues } from './src/matching-worker/matchingWorker';
-import { startMatchSubscriber } from './src/redis/redisSubscriber';
+import { ensureMatchEventConsumerGroup, startMatchSubscriber } from './src/redis/redisSubscriber';
 import { handleWsConnection } from './src/routes/matchingRoutes';
 
 const PORT = process.env.PORT || 3002;
@@ -12,6 +12,7 @@ app.use(express.json());
 
 async function startBackgroundWorkers() {
   await reconcilePendingMatches();
+  await ensureMatchEventConsumerGroup();
   setInterval(() => pollAllQueues(), 7500);
   setInterval(() => cleanupTimedOutUsers(), 2000);
   startMatchSubscriber();
