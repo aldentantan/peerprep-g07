@@ -6,6 +6,7 @@ import { Users, Code2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { login } from "@/app/services/authService";
 import { SciFiBackground } from "@/app/components/SciFiBackground";
+import { extractApiErrorMessage } from "@/app/utils/apiError";
 
 interface LoginScreenProps {
   onNavigateToSignup: () => void;
@@ -33,13 +34,9 @@ export function LoginScreen({
     try {
       await login({ email, password });
       onNavigateToDashboard();
-    } catch (err: any) {
-      const msg = err.response?.data?.error;
-      if (err.response?.status === 401) {
-        setError("Invalid email or password. Please try again.");
-      } else {
-        setError(msg || "Login failed. Please try again.");
-      }
+    } catch (err: unknown) {
+      const msg = extractApiErrorMessage(err, "Login failed. Please try again.");
+      setError(msg);
     } finally {
       setIsLoading(false);
     }

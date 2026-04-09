@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { Route, Routes, useNavigate } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { Button } from "@/app/components/ui/button";
-import { 
-  User, 
-  Users, 
-  BookOpen, 
+import {
+  User,
+  Users,
+  BookOpen,
   Menu,
   X,
   Shield
@@ -32,16 +32,16 @@ import {
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
 import { isAuthenticated, logout, getProfile } from "@/app/services/authService";
+import { Question } from "./services/questionService";
 
 type Screen = "login" | "signup" | "forgotPassword" | "profile" | "matching" | "questions" | "addQuestion" | "editQuestion" | "solo" | "admin";
 
 function MainAppPage() {
-  const navigate = useNavigate();
   const [currentScreen, setCurrentScreen] = useState<Screen>("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userRole, setUserRole] = useState<string>("user");
-  const [editingQuestion, setEditingQuestion] = useState<any>(null);
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const isMatchingRef = useRef(false);
   const [showNavConfirm, setShowNavConfirm] = useState(false);
   const pendingScreenRef = useRef<Screen | null>(null);
@@ -144,8 +144,8 @@ function MainAppPage() {
                     variant={currentScreen === item.id ? "default" : "ghost"}
                     onClick={() => navigateTo(item.id)}
                     className={
-                      currentScreen === item.id 
-                        ? "bg-sky-500/20 text-sky-300 border border-sky-500/30" 
+                      currentScreen === item.id
+                        ? "bg-sky-500/20 text-sky-300 border border-sky-500/30"
                         : "text-gray-400 hover:bg-white/10 hover:text-white"
                     }
                   >
@@ -153,8 +153,8 @@ function MainAppPage() {
                     {item.label}
                   </Button>
                 );
-              })}              <Button 
-                variant="outline" 
+              })}              <Button
+                variant="outline"
                 onClick={handleLogout}
                 className="ml-2 border border-white/20 text-black hover:bg-white/10"
               >
@@ -188,8 +188,8 @@ function MainAppPage() {
                         setIsMobileMenuOpen(false);
                       }}
                       className={`w-full justify-start ${
-                        currentScreen === item.id 
-                          ? "bg-sky-500/20 text-sky-300" 
+                        currentScreen === item.id
+                          ? "bg-sky-500/20 text-sky-300"
                           : "text-gray-400 hover:text-white"
                       }`}
                     >

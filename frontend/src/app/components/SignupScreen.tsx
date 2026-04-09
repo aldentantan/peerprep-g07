@@ -4,6 +4,7 @@ import { Label } from "@/app/components/ui/label";
 import { useState } from "react";
 import { signup } from "@/app/services/authService";
 import { SciFiBackground } from "@/app/components/SciFiBackground";
+import { extractApiErrorMessage } from "@/app/utils/apiError";
 
 interface SignupScreenProps {
   onNavigateToLogin: () => void;
@@ -31,8 +32,9 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
     try {
       await signup({ email, username, password });
       onNavigateToLogin();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Signup failed. Please try again.");
+    } catch (err: unknown) {
+      const msg = extractApiErrorMessage(err, "Signup failed. Please try again.");
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -59,8 +61,8 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
           {/* Username Field */}
           <div className="space-y-2">
             <Label htmlFor="username" className="text-gray-300">Username</Label>
-            <Input 
-              id="username" 
+            <Input
+              id="username"
               type="text"
               placeholder="Username"
               className="border border-white/20 bg-white/5 text-white placeholder:text-gray-500 h-12"
@@ -72,8 +74,8 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
           {/* Email Field */}
           <div className="space-y-2">
             <Label htmlFor="email" className="text-gray-300">Email</Label>
-            <Input 
-              id="email" 
+            <Input
+              id="email"
               type="email"
               placeholder="email@example.com"
               className="border border-white/20 bg-white/5 text-white placeholder:text-gray-500 h-12"
@@ -85,8 +87,8 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
           {/* Password Field */}
           <div className="space-y-2">
             <Label htmlFor="password" className="text-gray-300">Password</Label>
-            <Input 
-              id="password" 
+            <Input
+              id="password"
               type="password"
               placeholder="••••••••"
               className="border border-white/20 bg-white/5 text-white placeholder:text-gray-500 h-12"
@@ -98,8 +100,8 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
           {/* Confirm Password Field */}
           <div className="space-y-2">
             <Label htmlFor="confirm-password" className="text-gray-300">Confirm Password</Label>
-            <Input 
-              id="confirm-password" 
+            <Input
+              id="confirm-password"
               type="password"
               placeholder="••••••••"
               className="border border-white/20 bg-white/5 text-white placeholder:text-gray-500 h-12"
@@ -116,7 +118,7 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
           )}
 
           {/* Signup Button */}
-          <Button 
+          <Button
             onClick={handleCreateAccount}
             disabled={isLoading}
             className="w-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white h-12 text-lg"
@@ -135,9 +137,9 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
           </div>
 
           {/* Login Link */}
-          <Button 
+          <Button
             onClick={onNavigateToLogin}
-            variant="outline" 
+            variant="outline"
             className="w-full border border-white/20 bg-white/5 text-gray-300 hover:bg-white/10 h-12 text-lg"
           >
             Login

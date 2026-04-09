@@ -3,11 +3,11 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Badge } from "@/app/components/ui/badge";
 import { Textarea } from "@/app/components/ui/textarea";
-import { 
-  ArrowLeft, 
-  Save, 
-  X, 
-  Upload, 
+import {
+  ArrowLeft,
+  Save,
+  X,
+  Upload,
   Image as ImageIcon,
   Shield,
   Edit,
@@ -21,6 +21,7 @@ import {
   updateQuestion,
   type Question,
 } from "@/app/services/questionService";
+import { extractApiErrorMessage } from "@/app/utils/apiError";
 
 interface EditQuestionScreenProps {
   question: Question;
@@ -230,7 +231,7 @@ export function EditQuestionScreen({ question, onBack, onSave }: EditQuestionScr
               <p className="text-purple-100 text-sm mt-1">Update an existing coding challenge</p>
             </div>
           </div>
-          <Button 
+          <Button
             onClick={onBack}
             className="bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm border-white/30"
           >

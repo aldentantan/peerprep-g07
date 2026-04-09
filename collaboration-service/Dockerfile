@@ -7,6 +7,6 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 3003 8080 8081
+EXPOSE 3000 8080 8081
 
-CMD ["node", "src/server.js"]
+CMD ["node", "src/index.js"]

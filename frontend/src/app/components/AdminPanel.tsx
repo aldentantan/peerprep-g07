@@ -2,17 +2,18 @@ import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
-import { 
-  Shield, 
-  Search, 
-  User, 
-  Crown, 
-  ArrowUpCircle, 
+import {
+  Shield,
+  Search,
+  User,
+  Crown,
+  ArrowUpCircle,
   ArrowDownCircle,
-  AlertTriangle 
+  AlertTriangle
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getAllUsers, updateUserRole, type UserProfile } from "@/app/services/authService";
+import { extractApiErrorMessage } from "@/app/utils/apiError";
 
 export function AdminPanel() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -28,8 +29,8 @@ export function AdminPanel() {
     try {
       const data = await getAllUsers();
       setUsers(data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to load users. You may not have root admin access.");
+    } catch (err: unknown) {
+      setError(extractApiErrorMessage(err, "Failed to load users. You may not have root admin access."));
     } finally {
       setIsLoading(false);
     }
@@ -46,8 +47,8 @@ export function AdminPanel() {
       setActionMessage(`Successfully updated role for ${email} to ${newRole}`);
       setConfirmAction(null);
       fetchUsers();
-    } catch (err: any) {
-      setActionMessage(err.response?.data?.error || "Failed to update role");
+    } catch (err: unknown) {
+      setActionMessage(extractApiErrorMessage(err, "Failed to update role"));
     }
   };
 
@@ -164,7 +165,15 @@ export function AdminPanel() {
               <div className="flex items-center gap-4 flex-wrap">
                 {/* Avatar */}
                 <div className="w-12 h-12 border-2 border-gray-400 rounded-full flex items-center justify-center bg-gray-100 flex-shrink-0">
-                  <User className="w-6 h-6 text-gray-400" />
+                  {user.profile_image_url ? (
+                    <img
+                      src={user.profile_image_url}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-6 h-6 text-gray-400" />
+                  )}
+                  
                 </div>
 
                 {/* User Info */}

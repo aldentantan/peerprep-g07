@@ -3,11 +3,11 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Badge } from "@/app/components/ui/badge";
 import { Textarea } from "@/app/components/ui/textarea";
-import { 
-  ArrowLeft, 
-  Save, 
-  X, 
-  Upload, 
+import {
+  ArrowLeft,
+  Save,
+  X,
+  Upload,
   Image as ImageIcon,
   Shield,
   Plus,
@@ -20,6 +20,7 @@ import {
   getQuestionRequestErrorMessage,
   getTopics,
 } from "@/app/services/questionService";
+import { extractApiErrorMessage } from "@/app/utils/apiError";
 
 interface AddQuestionScreenProps {
   onBack: () => void;
@@ -215,7 +216,7 @@ export function AddQuestionScreen({ onBack, onSave }: AddQuestionScreenProps) {
               <p className="text-purple-100 text-sm mt-1">Create a new coding challenge for the library</p>
             </div>
           </div>
-          <Button 
+          <Button
             onClick={onBack}
             className="bg-white text-purple-600 hover:bg-purple-50 border-white/80"
           >

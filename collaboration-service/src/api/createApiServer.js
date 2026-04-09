@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 
 const QUESTION_SERVICE_URL = process.env.QUESTION_SERVICE_URL || 'http://question-service:3001';
+const COLLAB_USER_ROOM_MAP_KEY = 'collab.users.room';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -9,7 +10,11 @@ const toTitleCase = (value) => {
     if (!value || typeof value !== 'string') {
         return '';
     }
-    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+    return value
+    .trim()
+    .replace(/-/g, ' ') // Replace hyphens with whitespaces
+    .toLowerCase()
+    .replace(/\b[a-z]/g, (char) => char.toUpperCase()); // Capitalize first letter of each word
 };
 
 async function fetchRandomQuestion(questionTopic, questionDifficulty) {
@@ -51,21 +56,15 @@ async function initializeRoomQuestion(redisClient, roomId, room) {
             const questionTitle = pickedQuestion?.title || fallbackTitle;
             const questionDescription = pickedQuestion?.description || fallbackDescription;
             const questionId = pickedQuestion?.questionId ? String(pickedQuestion.questionId) : '';
-            const questionTopics = Array.isArray(pickedQuestion?.topics) && pickedQuestion.topics.length > 0
-                ? pickedQuestion.topics
-                : [room.questionTopic].filter(Boolean);
-            const questionUpdatedAt = pickedQuestion?.updatedAt || '';
+            const imageUrls = Array.isArray(pickedQuestion?.imageUrls) ? pickedQuestion.imageUrls : [];
             const question = `${questionTitle}\n\n${questionDescription}`;
-            const testCases = Array.isArray(pickedQuestion?.testCases) ? pickedQuestion.testCases : [];
 
             await redisClient.hSet(`room:${roomId}`, {
                 questionId,
                 questionTitle,
                 questionDescription,
-                questionTopics: JSON.stringify(questionTopics),
-                questionUpdatedAt,
                 question,
-                testCases: JSON.stringify(testCases),
+                imageUrls: JSON.stringify(imageUrls),
             });
         } catch (err) {
             console.error('Failed to initialize room question:', err);
@@ -76,10 +75,8 @@ async function initializeRoomQuestion(redisClient, roomId, room) {
                 questionId: '',
                 questionTitle: fallbackTitle,
                 questionDescription: fallbackDescription,
-                questionTopics: JSON.stringify([room.questionTopic].filter(Boolean)),
-                questionUpdatedAt: '',
                 question: `${fallbackTitle}\n\n${fallbackDescription}`,
-                testCases: '[]',
+                imageUrls: JSON.stringify([]),
             });
         } finally {
             await redisClient.del(lockKey);
@@ -101,6 +98,35 @@ async function initializeRoomQuestion(redisClient, roomId, room) {
 function createApiServer(redisClient) {
     const app = express();
     app.use(cors());
+    app.use(express.json());
+
+    app.get('/room/by-user/:username', async (req, res) => {
+        const { username } = req.params;
+
+        if (!username) {
+            return res.status(400).json({ error: 'Username is required' });
+        }
+
+        try {
+            const roomId = await redisClient.hGet(COLLAB_USER_ROOM_MAP_KEY, username);
+
+            if (!roomId) {
+                return res.status(404).json({ error: 'User does not belong to this room' });
+            }
+
+            // Suppose there is a roomId , need to check if the room exist or not 
+            // if not it will send value roomId and toggle to collab causing a loop
+            const room = await redisClient.hGetAll(`room:${roomId}`);
+            if (!room || Object.keys(room).length === 0) {
+                await redisClient.hDel(COLLAB_USER_ROOM_MAP_KEY, username);
+                return res.status(404).json({ error: 'Room not found' });
+            }
+            return res.json({ roomId });
+        } catch (err) {
+            console.error('Failed to resolve room by user:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+    });
 
     app.get('/room/:roomId', async (req, res) => {
         const { roomId } = req.params;
@@ -132,18 +158,6 @@ function createApiServer(redisClient) {
                 }
             }
 
-            let questionTopics = [];
-            if (room.questionTopics) {
-                try {
-                    const parsed = JSON.parse(room.questionTopics);
-                    if (Array.isArray(parsed)) {
-                        questionTopics = parsed.filter((item) => typeof item === 'string' && item.trim() !== '');
-                    }
-                } catch (err) {
-                    console.error('Invalid questionTopics in redis:', err);
-                }
-            }
-
             if (!room || Object.keys(room).length === 0 || !room.programmingLanguage || !room.questionTopic || !room.questionDifficulty) {
                 return res.status(404).json({ error: 'Room not found' });
             }
@@ -152,12 +166,15 @@ function createApiServer(redisClient) {
                 room = await initializeRoomQuestion(redisClient, roomId, room);
             }
 
-            let testCases = [];
-            if (room.testCases) {
+            let imageUrls = [];
+            if (room.imageUrls) {
                 try {
-                    testCases = JSON.parse(room.testCases);
+                    const parsed = JSON.parse(room.imageUrls);
+                    if (Array.isArray(parsed)) {
+                        imageUrls = parsed.filter((item) => typeof item === 'string');
+                    }
                 } catch (err) {
-                    console.error('Invalid testCases in redis:', err);
+                    console.error('Invalid imageUrls in redis:', err);
                 }
             }
 
@@ -166,17 +183,31 @@ function createApiServer(redisClient) {
                 questionId: room.questionId || '',
                 questionTitle: room.questionTitle || '',
                 questionDescription: room.questionDescription || room.question || '',
-                questionTopics,
-                questionUpdatedAt: room.questionUpdatedAt || '',
                 programmingLanguage: room.programmingLanguage,
                 questionTopic: room.questionTopic,
                 questionDifficulty: room.questionDifficulty,
-                participantUserIds,
-                testCases,
+                participantUsernames: participantUserIds,
+                imageUrls,
                 chatLog
             });
         } catch (err) {
             console.error('Failed to fetch room from redis:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    app.delete('/room/:roomId/user/:username/mapping', async (req, res) => {
+        const { roomId, username } = req.params;
+
+        if (!roomId || !username) {
+            return res.status(400).json({ error: 'Room ID and Username are required' });
+        }
+
+        try {
+            await redisClient.hDel(COLLAB_USER_ROOM_MAP_KEY, username);
+            return res.status(200).json({ message: 'User-room mapping deleted' });
+        } catch (err) {
+            console.error('Failed to delete user-room mapping:', err);
             return res.status(500).json({ error: 'Internal server error' });
         }
     });

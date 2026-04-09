@@ -1,13 +1,12 @@
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { Code2, Users, LogOut, User, Radio, History, Play, Loader2, Terminal, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/app/components/ui/alert-dialog";
 import Chatbox, { type ChatboxHandle } from "./Chatbox";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import * as Y from "yjs";
-import { WebsocketProvider } from "y-websocket";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { MonacoBinding } from "y-monaco";
-import Editor from "@monaco-editor/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import UIEditor from "./Editor";
+import type {UIEditorHandle } from "./Editor";
 import { toast } from "sonner";
 import {
   createAttemptHistoryEntry,
@@ -16,6 +15,8 @@ import {
 } from "@/app/services/attemptHistoryService";
 import { getQuestionById } from "@/app/services/questionService";
 import { AttemptHistoryPanel } from "@/app/components/AttemptHistoryPanel";
+import { toTitleCase } from "@/app/utils/titleCase";
+import { getProfileByUsername, UserProfile } from "@/app/services/authService";
 
 const languageMap: Record<string, string> = {
   javascript: "JavaScript",
@@ -27,7 +28,6 @@ const languageMap: Record<string, string> = {
   ruby: "Ruby",
   csharp: "C#",
 };
-
 
 type TestCase = {
   input: string;
@@ -57,16 +57,17 @@ type RoomData = {
   programmingLanguage: string;
   questionTopic: string;
   questionDifficulty: string;
-  participantUserIds?: string[];
+  participantUsernames: string[];
   testCases?: TestCase[];
+  imageUrls?: string[];
   chatLog: ChatMessage[];
 };
 
 type Participant = {
   id: string;
   name: string;
-  status: string;
   isCurrentUser: boolean;
+  profileImageUrl?: string;
 };
 
 type JwtPayload = {
@@ -76,21 +77,12 @@ type JwtPayload = {
   username?: string;
 };
 
-const toTitleCase = (value: string) => {
-  if (!value) {
-    return value;
-  }
-
-  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
-};
-
 export function CollaborationWorkspace() {
   // Build API/WS base URLs from env with sensible local defaults.
   const baseApiUrl = import.meta.env.VITE_API_URL || "/api";
   const apiBaseUrl = `${baseApiUrl.replace(/\/$/, "")}/collab`;
   const executeApiUrl = `${(import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "")}/execute`;
   const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
-  const wsBaseUrl = import.meta.env.VITE_YJS_WS_URL || `${wsScheme}://${window.location.host}/ws/yjs`;
   const chatWsBaseUrl = import.meta.env.VITE_CHAT_WS_URL || `${wsScheme}://${window.location.host}/ws/chat`;
 
   // Screen state for room data loading and failure handling.
@@ -100,6 +92,8 @@ export function CollaborationWorkspace() {
   const [attempts, setAttempts] = useState<AttemptHistoryEntry[]>([]);
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [isSubmittingAttempt, setIsSubmittingAttempt] = useState(false);
+  const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
+  const [participantsProfiles, setParticipantsProfiles] = useState<Record<string, UserProfile>>({});
 
   // Code execution state
   const [isRunning, setIsRunning] = useState(false);
@@ -107,7 +101,8 @@ export function CollaborationWorkspace() {
   const [testCaseResults, setTestCaseResults] = useState<TestCaseResult[]>([]);
   const [activeTab, setActiveTab] = useState<"console" | "testcases">("console");
   const [showOutput, setShowOutput] = useState(false);
-  const editorRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorRef = useRef<UIEditorHandle | null>(null);
 
   // Pull roomId from URL query string (?roomId=...).
   const [searchParams] = useSearchParams();
@@ -115,7 +110,8 @@ export function CollaborationWorkspace() {
   const navigate = useNavigate();
   const chatboxRef = useRef<ChatboxHandle | null>(null);
 
-  // Decode the JWT payload once so identity fields can be reused.
+  // Decode JWT once at mount time so we can consistently identify "who am I"
+  // across all participant list transforms.
   const tokenPayload = useMemo<JwtPayload | null>(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -132,24 +128,21 @@ export function CollaborationWorkspace() {
     }
   }, []);
 
-  // Prefer username from JWT, then local storage, then generated fallback.
+  // Preferred display identity for this client.
+  // 1) Use token username when available.
+  // 2) Fallback to generated value so the UI still has a stable self label.
   const username = useMemo(() => {
     if (tokenPayload?.username && tokenPayload.username.trim()) {
-      localStorage.setItem("peerprep_username", tokenPayload.username);
       return tokenPayload.username;
     }
 
-    const existingUser = localStorage.getItem("peerprep_username");
-    if (existingUser) {
-      return existingUser;
-    }
-
     const generatedUser = `User-${Math.floor(Math.random() * 10000)}`;
-    localStorage.setItem("peerprep_username", generatedUser);
     return generatedUser;
   }, [tokenPayload]);
 
-  // Keep a set of identifiers to reliably detect "current user" in participant IDs.
+  // Any value that can represent the current user in room participant entries.
+  // This allows the UI to still mark "(You)" even when room data mixes formats
+  // (for example, username in one event and userId/email in another).
   const currentUserIdentifiers = useMemo(() => {
     const identifiers = [
       tokenPayload?.id,
@@ -164,40 +157,49 @@ export function CollaborationWorkspace() {
     return new Set(identifiers);
   }, [tokenPayload, username]);
 
-  // Build the participant list from room data with de-duplication and self-labeling.
+  // Build a render-ready participant model from raw room data.
+  // Flow:
+  // - Read room participant values from `roomData.participantUserIds`
+  // - Deduplicate repeated values
+  // - Mark which entry belongs to current user
+  // - Ensure current user always appears at least once in the list
   const participants = useMemo<Participant[]>(() => {
-    const roomParticipantIds = roomData?.participantUserIds || [];
+    const roomParticipantUsernames = roomData?.participantUsernames || [];
     const participantList: Participant[] = [];
     const addedIds = new Set<string>();
 
-    roomParticipantIds.forEach((participantId) => {
-      if (!participantId || addedIds.has(participantId)) {
+    roomParticipantUsernames.forEach((participantName) => {
+      // Skip empty values and duplicates so each participant row is unique.
+      if (!participantName || addedIds.has(participantName)) {
         return;
       }
 
-      const isCurrentUser = currentUserIdentifiers.has(participantId);
-      const fallbackName = isCurrentUser ? username : participantId;
-
+      const isCurrentUser = currentUserIdentifiers.has(participantName);
+      const fallbackName = isCurrentUser ? username : participantName;
+      const profileImageUrl = participantsProfiles[participantName]?.profile_image_url;
       participantList.push({
-        id: participantId,
+        id: participantName,
         name: fallbackName,
-        status: "in room",
         isCurrentUser,
+        profileImageUrl,
       });
-      addedIds.add(participantId);
+      addedIds.add(participantName);
     });
 
+    // Safety net: if backend payload omitted self, inject self row so the
+    // participant panel always reflects local presence.
     if (!participantList.some((participant) => participant.isCurrentUser)) {
       participantList.unshift({
         id: username,
         name: username,
-        status: "online",
         isCurrentUser: true,
+        profileImageUrl: participantsProfiles[username]?.profile_image_url,
+
       });
     }
 
     return participantList;
-  }, [roomData, currentUserIdentifiers, username]);
+  }, [roomData, currentUserIdentifiers, username, participantsProfiles]);
 
   const displayTopics = useMemo(() => {
     if (!roomData) {
@@ -205,16 +207,28 @@ export function CollaborationWorkspace() {
     }
 
     if (roomData.questionTopics && roomData.questionTopics.length > 0) {
-      return roomData.questionTopics;
+      return roomData.questionTopics.map(toTitleCase);
     }
 
-    return roomData.questionTopic ? [roomData.questionTopic] : [];
+    return roomData.questionTopic ? [toTitleCase(roomData.questionTopic)] : [];
   }, [roomData]);
 
   const peerName = useMemo(() => {
     const peer = participants.find((p) => !p.isCurrentUser);
     return peer?.name ?? "your peer";
   }, [participants]);
+
+  const descriptionParagraphs = useMemo(() => {
+    const description = roomData?.questionDescription?.trim() || "";
+    if (!description) {
+      return [];
+    }
+
+    return description
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
+  }, [roomData?.questionDescription]);
 
   // Fetch room metadata and chat history from collaboration API whenever room changes.
   useEffect(() => {
@@ -223,6 +237,32 @@ export function CollaborationWorkspace() {
       setLoadError("Room ID is missing");
       return;
     }
+
+    // Check if user is valid to enter collaboration rooom or not
+    const validateUserInRoom = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${apiBaseUrl}/my-room`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+
+        if (!response.ok) {
+          navigate("/");
+          return false;
+        }
+
+        const data = (await response.json()) as { roomId?: string };
+        if (!data.roomId || data.roomId !== roomId) {
+          navigate("/");
+          return false;
+        }
+
+        return true;
+      } catch {
+        navigate("/");
+        return false;
+      }
+    };
 
     const fetchRoom = async () => {
       try {
@@ -233,11 +273,19 @@ export function CollaborationWorkspace() {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
 
-        if (!res.ok) {
-          throw new Error("Room not found");
-        }
+        console.log("Fetch room response:", res);
 
         const data = (await res.json()) as RoomData;
+
+        // return to matching page if room is not found
+        if (!res.ok) {
+          console.log("Room not present: ", data);
+          navigate("/");
+          return;
+        }
+
+        // Room payload is the baseline source of participants for initial render.
+        // Subsequent join/leave websocket events update this list incrementally.
         setRoomData({
           question: data.question,
           questionId: data.questionId,
@@ -247,8 +295,9 @@ export function CollaborationWorkspace() {
           programmingLanguage: data.programmingLanguage,
           questionTopic: toTitleCase(data.questionTopic),
           questionDifficulty: toTitleCase(data.questionDifficulty),
-          participantUserIds: data.participantUserIds,
+          participantUsernames: data.participantUsernames || [],
           testCases: data.testCases || [],
+          imageUrls: data.imageUrls || [],
           chatLog: data.chatLog,
         });
       } catch (err) {
@@ -259,7 +308,12 @@ export function CollaborationWorkspace() {
       }
     };
 
-    fetchRoom();
+    validateUserInRoom().then((isValidUserInRoom) => {
+      if (!isValidUserInRoom) {
+        return;
+      }
+      fetchRoom();
+    });
   }, [roomId, apiBaseUrl]);
 
   useEffect(() => {
@@ -285,43 +339,62 @@ export function CollaborationWorkspace() {
     fetchAttempts();
   }, [roomData?.questionId]);
 
-  const handleUserLeft = (departingUser: string) => {
+  const handleUserLeft = useCallback((departingUser: string) => {
+    // Only toast for peers; suppress noisy self-leave notification.
     if (departingUser !== username) {
       toast.info(`${departingUser} has left the room.`);
     }
 
     setRoomData((prev) => {
-      if (!prev?.participantUserIds) {
+      if (!prev?.participantUsernames) {
         return prev;
       }
 
+      // Remove the departing user from local participant list snapshot.
       return {
         ...prev,
-        participantUserIds: prev.participantUserIds.filter((participantId) => participantId !== departingUser),
+        participantUsernames: prev.participantUsernames.filter((username) => username !== departingUser),
       };
     });
-  };
+  }, [username]);
 
-  // Attach Yjs + Monaco collaborative binding when editor is mounted.
-  const handleEditorMount = (editor: any) => {
-    editorRef.current = editor;
-    if (!roomId) {
-      return;
+  const handleUserJoined = useCallback((joinedUser: string) => {
+    // Show toast only when another user joins, not for self
+    if (joinedUser !== username) {
+      toast.info(`${joinedUser} has joined the room.`);
     }
 
-    editorRef.current = editor;
+    setRoomData((prev) => {
+      if (!prev?.participantUsernames) {
+        return prev;
+      }
 
-    const ydoc = new Y.Doc();
-    const provider = new WebsocketProvider(wsBaseUrl, roomId, ydoc);
-    const yText = ydoc.getText("monaco");
-    const binding = new MonacoBinding(yText, editor.getModel(), new Set([editor]));
+      // Add to participants only if not already present to avoid duplicated rows.
+      if (!prev.participantUsernames.includes(joinedUser)) {
+        return {
+          ...prev,
+          participantUsernames: [...prev.participantUsernames, joinedUser],
+        };
+      }
 
-    editor.onDidDispose(() => {
-      binding.destroy();
-      provider.destroy();
-      ydoc.destroy();
+      return prev;
     });
-  };
+  }, [username]);
+
+  // Best-effort presence update on unload.
+  // This helps peers remove this user from their participant panel quickly
+  // without waiting for manual refresh.
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      chatboxRef.current?.sendUserLeft(username);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [username]);
 
   const handleSubmitAttempt = async () => {
     if (!roomData?.questionId) {
@@ -364,6 +437,28 @@ export function CollaborationWorkspace() {
       setIsSubmittingAttempt(false);
     }
   };
+
+  useEffect(() => {
+    if (roomData) {
+      const fetchParticipantProfiles = async () => {
+        const profiles: Record<string, UserProfile> = {};
+        // Fetch profiles for all participants in parallel
+        await Promise.all((roomData.participantUsernames?.map(async (participantName) => {
+          try {
+            const profile = await getProfileByUsername(participantName);
+            profiles[participantName] = profile;
+          } catch (error) {
+            console.error(`Failed to fetch profile for user: ${participantName}`, error);
+          }
+        }) || []));
+
+        setParticipantsProfiles(profiles);
+      };
+
+      fetchParticipantProfiles();
+    }
+  }, [roomData]);
+
 
   // Execute code via the code-execution service.
   const executeCode = useCallback(async (code: string, language: string, stdin?: string) => {
@@ -461,15 +556,37 @@ export function CollaborationWorkspace() {
     }
   }, [executeCode, roomData?.programmingLanguage, roomData?.testCases]);
 
-  // Leave room and clear local room marker used for quick re-entry.
-  const handleLeaveRoom = () => {
+  // Leave room explicitly: notify peers and request backend mapping cleanup.
+  const handleLeaveRoom = useCallback(async () => {
     chatboxRef.current?.sendUserLeft(username);
 
-    window.setTimeout(() => {
+    try {
+      if (roomId) {
+        const token = localStorage.getItem("token");
+        await fetch(`${apiBaseUrl}/room/${encodeURIComponent(roomId)}/leave`, {
+          method: "DELETE",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+      }
+    } catch (error) {
+      console.error("Failed to delete user-room mapping on leave:", error);
+    } finally {
       chatboxRef.current?.closeSocket();
-      localStorage.removeItem("roomId");
       navigate("/");
-    }, 60);
+    }
+  }, [apiBaseUrl, navigate, roomId, username]);
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "Easy":
+        return "bg-green-100 text-green-800 border-green-300";
+      case "Medium":
+        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      case "Hard":
+        return "bg-red-100 text-red-800 border-red-300";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300";
+    }
   };
 
   if (isLoading) {
@@ -504,14 +621,33 @@ export function CollaborationWorkspace() {
               <p className="text-purple-100 text-sm">Live coding session with {peerName}</p>
             </div>
           </div>
-          <Button
-            className="bg-red-500/80 text-white hover:bg-red-600 border-red-400/30"
-            size="sm"
-            onClick={handleLeaveRoom}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Leave Room
-          </Button>
+          <AlertDialog open={isLeaveConfirmOpen} onOpenChange={setIsLeaveConfirmOpen}>
+            <Button
+              className="bg-red-500/80 text-white hover:bg-red-600 border-red-400/30"
+              size="sm"
+              onClick={() => setIsLeaveConfirmOpen(true)}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Leave Room
+            </Button>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Leave this room?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You will be removed from the collaboration room and sent back to the dashboard. Your current session state will be cleared.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  onClick={handleLeaveRoom}
+                >
+                  Leave Room
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -520,7 +656,7 @@ export function CollaborationWorkspace() {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <h2 className="text-xl font-semibold text-gray-900">{roomData.questionTitle}</h2>
-              <Badge className="bg-green-100 text-green-800 border border-green-300">
+              <Badge className={getDifficultyColor(roomData.questionDifficulty)}>
                 {roomData.questionDifficulty}
               </Badge>
               {displayTopics.map((topic) => (
@@ -533,7 +669,38 @@ export function CollaborationWorkspace() {
                 Live Session
               </Badge>
             </div>
-            <p className="text-sm text-gray-600">{roomData.questionDescription}</p>
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="mt-2 space-y-1 text-sm leading-5 text-slate-700">
+                {descriptionParagraphs.length > 0 ? (
+                  descriptionParagraphs.map((paragraph, index) => (
+                    <p key={index} className="whitespace-pre-line">
+                      {paragraph}
+                    </p>
+                  ))
+                ) : (
+                  <p>No description provided for this question.</p>
+                )}
+              </div>
+            </div>
+            {roomData.imageUrls && roomData.imageUrls.length > 0 && (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {roomData.imageUrls.map((imageUrl, index) => (
+                    <div key={index} className="rounded-lg border border-gray-300 bg-white p-2">
+                      <img
+                        src={imageUrl}
+                        alt={`Question image ${index + 1}`}
+                        className="mx-auto h-auto max-h-40 w-auto max-w-full rounded-md object-contain"
+                        onError={(e) => {
+                          console.error('Failed to load image:', imageUrl);
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -546,10 +713,18 @@ export function CollaborationWorkspace() {
           </div>
 
           <div className="space-y-2">
+            {/* Render-ready list produced by `participants` useMemo above. */}
             {participants.map((user) => (
               <div key={user.id} className="flex items-center gap-3 p-3 border-2 border-gray-300 rounded-lg bg-gray-50">
                 <div className="w-10 h-10 border-2 border-gray-400 rounded-full flex items-center justify-center bg-white flex-shrink-0">
-                  <User className="w-5 h-5 text-gray-400" />
+                  {user.profileImageUrl ? (
+                    <img
+                      src={user.profileImageUrl}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-5 h-5 text-gray-400" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -559,7 +734,6 @@ export function CollaborationWorkspace() {
                     </p>
                     <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
                   </div>
-                  <p className="text-xs text-gray-600">{user.status}</p>
                 </div>
               </div>
             ))}
@@ -619,13 +793,10 @@ export function CollaborationWorkspace() {
           </div>
 
           <div className="border-2 border-gray-300 rounded-lg overflow-hidden bg-gray-50">
-            <Editor
-              key={roomId ?? "default-room"}
-              height="400px"
-              language={roomData.programmingLanguage}
-              defaultValue=""
-              theme="vs-dark"
-              onMount={(editor: any) => handleEditorMount(editor)}
+            <UIEditor
+              ref={editorRef}
+              roomId={roomId || ""}
+              programmingLanguage={roomData.programmingLanguage}
             />
           </div>
 
@@ -790,6 +961,7 @@ export function CollaborationWorkspace() {
           username={username}
           initialMessages={roomData.chatLog || []}
           onUserLeft={handleUserLeft}
+          onUserJoined={handleUserJoined}
         />
       </div>
 

@@ -25,6 +25,7 @@ import {
   User,
 } from "lucide-react";
 import { deleteQuestion, getQuestions, getTopics, type Question } from "@/app/services/questionService";
+import { extractApiErrorMessage } from "../utils/apiError";
 
 interface QuestionLibraryProps {
   onStartSession?: () => void;
@@ -105,8 +106,8 @@ export function QuestionLibrary({
       if (data.page !== currentPage) {
         setCurrentPage(data.page);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to load questions");
+    } catch (err: unknown) {
+      setError(extractApiErrorMessage(err, "Failed to load questions"));
       setQuestions([]);
       setTotalCount(0);
       setTotalPages(0);
@@ -119,8 +120,8 @@ export function QuestionLibrary({
     try {
       const data = await getTopics();
       setAvailableTopics(data.topics);
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to load topics");
+    } catch (err: unknown) {
+      setError(extractApiErrorMessage(err, "Failed to load topics"));
     }
   };
 
@@ -146,8 +147,8 @@ export function QuestionLibrary({
     try {
       await deleteQuestion(id);
       await fetchQuestions();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to delete question");
+    } catch (err: unknown) {
+      setError(extractApiErrorMessage(err, "Failed to delete question"));
     }
   };
 
@@ -329,7 +330,7 @@ export function QuestionLibrary({
                 className="border-4 border-gray-300 rounded-lg p-5 bg-white hover:border-blue-400 transition-colors cursor-pointer group"
               >
                 <div className="space-y-3">
-                {/* Header */}
+                  {/* Header */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -346,7 +347,7 @@ export function QuestionLibrary({
                     )}
                   </div>
 
-                {/* Tags */}
+                  {/* Tags */}
                   <div className="flex flex-wrap gap-2">
                     <Badge className={`border ${getDifficultyColor(question.difficulty)}`}>
                       {question.difficulty}
@@ -358,10 +359,10 @@ export function QuestionLibrary({
                     ))}
                   </div>
 
-                {/* Description */}
+                  {/* Description */}
                   <p className="text-sm text-gray-600 line-clamp-2">{question.description}</p>
 
-                {/* Leetcode Link */}
+                  {/* Leetcode Link */}
                   {question.leetcodeLink && (
                     <div className="flex items-center gap-2 text-xs text-blue-600">
                       <a href={question.leetcodeLink} target="_blank" rel="noopener noreferrer" className="hover:underline">
@@ -370,7 +371,7 @@ export function QuestionLibrary({
                     </div>
                   )}
 
-                {/* Admin Action Buttons */}
+                  {/* Admin Action Buttons */}
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -407,7 +408,7 @@ export function QuestionLibrary({
                 className="border-4 border-gray-300 rounded-lg p-5 bg-white hover:border-blue-400 transition-colors cursor-pointer group"
               >
                 <div className="flex items-center gap-4">
-                {/* Image Indicator */}
+                  {/* Image Indicator */}
                   <div className="w-16 h-16 border-2 border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 flex-shrink-0">
                     {question.imageUrls && question.imageUrls.length > 0 ? (
                       <ImageIcon className="h-8 w-8 text-gray-400" />
@@ -416,7 +417,7 @@ export function QuestionLibrary({
                     )}
                   </div>
 
-                {/* Content */}
+                  {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Badge variant="outline" className="text-xs font-mono border-gray-400 text-gray-600">
@@ -437,7 +438,7 @@ export function QuestionLibrary({
                     </div>
                   </div>
 
-                {/* Admin Action Buttons */}
+                  {/* Admin Action Buttons */}
                   <div className="flex gap-2 flex-shrink-0">
                     <Button
                       variant="outline"
@@ -490,8 +491,10 @@ export function QuestionLibrary({
                     href="#"
                     isActive={item === currentPage}
                     onClick={(event) => {
-                      event.preventDefault();
-                      setCurrentPage(item);
+                      if (typeof item === "number") {
+                        event.preventDefault();
+                        setCurrentPage(item);
+                      }
                     }}
                   >
                     {item}
