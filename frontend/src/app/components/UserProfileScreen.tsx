@@ -29,13 +29,11 @@ export function UserProfileScreen() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [attemptsLoading, setAttemptsLoading] = useState(true);
   const [attempts, setAttempts] = useState<AttemptHistoryEntry[]>([]);
   const [error, setError] = useState("");
-  const [saveMessage, setSaveMessage] = useState("");
 
   useEffect(() => {
     const fetchProfileAndHistory = async () => {
@@ -62,12 +60,11 @@ export function UserProfileScreen() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    setSaveMessage("");
     try {
       await updateProfile({ username, profile_image: selectedImage || undefined });
-      setSaveMessage("Profile updated successfully!");
+      toast.success("Profile updated successfully!");
     } catch (err: unknown) {
-      setSaveMessage(extractApiErrorMessage(err, "Failed to update profile"));
+      toast.error(extractApiErrorMessage(err, "Failed to update profile"));
     } finally {
       setIsSaving(false);
     }
@@ -83,27 +80,25 @@ export function UserProfileScreen() {
 
   const handleChangePassword = async () => {
     setIsSaving(true);
-    setPasswordMessage("");
     if (!currentPassword || !newPassword || !confirmNewPassword) {
-      setPasswordMessage("Please fill in all password fields");
+      toast.error("Please fill in all password fields");
       setIsSaving(false);
       return;
     }
     if (newPassword !== confirmNewPassword) {
-      setPasswordMessage("New passwords do not match");
+      toast.error("New passwords do not match");
       setIsSaving(false);
       return;
     }
     try {
       await changePassword(currentPassword, newPassword);
-      setPasswordMessage("Password changed successfully!");
       toast.success("Password changed successfully!");
       setIsChangingPassword(false);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmNewPassword("");
     } catch (err: unknown) {
-      setPasswordMessage(extractApiErrorMessage(err, "Failed to change password"));
+      toast.error(extractApiErrorMessage(err, "Failed to change password"));
     } finally {
       setIsSaving(false);
     }
@@ -120,9 +115,9 @@ export function UserProfileScreen() {
         setSelectedImage(null);
       };
       fetchProfile();
-      setSaveMessage("Changes reverted successfully!");
+      toast.success("Changes reverted successfully!");
     } catch (err: unknown) {
-      setSaveMessage(extractApiErrorMessage(err, "Failed to revert changes"));
+      toast.error(extractApiErrorMessage(err, "Failed to revert changes"));
     }
   };
 
@@ -382,11 +377,6 @@ export function UserProfileScreen() {
                   {isSaving ? 'Saving...' : 'Save New Password'}
                 </Button>
 
-                {passwordMessage && (
-                  <p className={`text-sm ${passwordMessage.includes('success') ? 'text-green-600' : 'text-red-600'}`}>
-                    {passwordMessage}
-                  </p>
-                )}
               </div>
             )}
           </div>
@@ -418,12 +408,6 @@ export function UserProfileScreen() {
               <div className="text-2xl font-bold text-gray-900">{attempts.length}</div>
             </div>
           </div>
-
-          {saveMessage && (
-            <p className={`text-sm ${saveMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
-              {saveMessage}
-            </p>
-          )}
 
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" className="border-2 border-gray-300" onClick={handleCancel} disabled={isSaving}>
