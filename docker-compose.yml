@@ -155,10 +155,21 @@ services:
     command:
       - -c
       - |
+        RUNTIMES=$$(curl -s http://piston:2000/api/v2/runtimes)
+        is_installed() {
+          lang=$$1; ver=$$2
+          echo "$$RUNTIMES" | grep -q "\"language\":\"$$lang\"" && \
+          echo "$$RUNTIMES" | grep -q "\"version\":\"$$ver\"" && return 0
+          return 1
+        }
         install_pkg() {
-          pkg=$$1
+          pkg=$$1; lang=$$2; ver=$$3
+          if is_installed "$$lang" "$$ver"; then
+            echo "$$lang-$$ver already installed, skipping"
+            return 0
+          fi
           for attempt in 1 2 3; do
-            echo "Installing $$pkg (attempt $$attempt/3)..."
+            echo "Installing $$lang-$$ver (attempt $$attempt/3)..."
             result=$$(curl -s --max-time 300 --connect-timeout 10 -w "\n%{http_code}" -X POST http://piston:2000/api/v2/packages \
               -H "Content-Type: application/json" -d "$$pkg")
             http_code=$$(echo "$$result" | tail -1)
@@ -173,20 +184,17 @@ services:
             echo " Failed (HTTP $$http_code), retrying in 10s..."
             sleep 10
           done
-          echo " FAILED after 3 attempts: $$pkg"
+          echo " FAILED after 3 attempts: $$lang-$$ver"
           return 1
         }
-        for pkg in \
-          '{"language":"python","version":"3.10.0"}' \
-          '{"language":"node","version":"18.15.0"}' \
-          '{"language":"typescript","version":"5.0.3"}' \
-          '{"language":"java","version":"15.0.2"}' \
-          '{"language":"gcc","version":"10.2.0"}' \
-          '{"language":"go","version":"1.16.2"}' \
-          '{"language":"ruby","version":"3.0.1"}' \
-          '{"language":"mono","version":"6.12.0"}'; do
-          install_pkg "$$pkg"
-        done
+        install_pkg '{"language":"python","version":"3.10.0"}' python 3.10.0
+        install_pkg '{"language":"node","version":"18.15.0"}' node 18.15.0
+        install_pkg '{"language":"typescript","version":"5.0.3"}' typescript 5.0.3
+        install_pkg '{"language":"java","version":"15.0.2"}' java 15.0.2
+        install_pkg '{"language":"gcc","version":"10.2.0"}' gcc 10.2.0
+        install_pkg '{"language":"go","version":"1.16.2"}' go 1.16.2
+        install_pkg '{"language":"ruby","version":"3.0.1"}' ruby 3.0.1
+        install_pkg '{"language":"mono","version":"6.12.0"}' mono 6.12.0
         echo "All runtimes installed."
     restart: "no"
 
