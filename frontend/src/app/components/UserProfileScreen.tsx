@@ -90,6 +90,13 @@ export function UserProfileScreen() {
       setIsSaving(false);
       return;
     }
+
+    if (newPassword === currentPassword) {
+      toast.error("New password cannot be the same as current password");
+      setIsSaving(false);
+      return;
+    }
+
     try {
       await changePassword(currentPassword, newPassword);
       toast.success("Password changed successfully!");

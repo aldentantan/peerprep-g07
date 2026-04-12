@@ -6,7 +6,6 @@ import {
   updateUser,
   updateUserPassword,
   deleteUser,
-  getUserByEmail,
   getUserByUsername,
   updateUserRoleByEmail,
   getAllUsers,
@@ -42,7 +41,6 @@ router.patch(
 
 router.delete("/me", verifyAccessToken, deleteUser);
 
-router.get('/by-email/:email', verifyAccessToken, getUserByEmail);
 router.get("/by-username/:username", verifyAccessToken, getUserByUsername);
 
 // Admin-only routes
