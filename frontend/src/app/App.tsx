@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { LoginScreen } from "@/app/components/LoginScreen";
 import { SignupScreen } from "@/app/components/SignupScreen";
-import { ForgotPasswordScreen } from "@/app/components/ForgotPasswordScreen";
+
 import { UserProfileScreen } from "@/app/components/UserProfileScreen";
 import { MatchingDashboard } from "@/app/components/MatchingDashboard";
 import { QuestionLibrary } from "@/app/components/QuestionLibrary";
@@ -34,7 +34,7 @@ import {
 import { isAuthenticated, logout, getProfile } from "@/app/services/authService";
 import { Question } from "./services/questionService";
 
-type Screen = "login" | "signup" | "forgotPassword" | "profile" | "matching" | "questions" | "addQuestion" | "editQuestion" | "solo" | "admin";
+type Screen = "login" | "signup" | "profile" | "matching" | "questions" | "addQuestion" | "editQuestion" | "solo" | "admin";
 
 function MainAppPage() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("login");
@@ -104,10 +104,7 @@ function MainAppPage() {
     if (currentScreen === "signup") {
       return <SignupScreen onNavigateToLogin={() => setCurrentScreen("login")} />;
     }
-    if (currentScreen === "forgotPassword") {
-      return <ForgotPasswordScreen onNavigateToLogin={() => setCurrentScreen("login")} />;
-    }
-    return <LoginScreen onNavigateToSignup={() => setCurrentScreen("signup")} onNavigateToForgotPassword={() => setCurrentScreen("forgotPassword")} onNavigateToDashboard={handleLogin} />;
+    return <LoginScreen onNavigateToSignup={() => setCurrentScreen("signup")} onNavigateToDashboard={handleLogin} />;
   }
 
   const navigationItems = [

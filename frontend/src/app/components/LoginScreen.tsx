@@ -11,13 +11,11 @@ import { extractApiErrorMessage } from "@/app/utils/apiError";
 interface LoginScreenProps {
   onNavigateToSignup: () => void;
   onNavigateToDashboard: () => void;
-  onNavigateToForgotPassword: () => void;
 }
 
 export function LoginScreen({
   onNavigateToSignup,
   onNavigateToDashboard,
-  onNavigateToForgotPassword,
 }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -181,8 +179,8 @@ export function LoginScreen({
             />
           </div>
 
-          {/* Remember Me & Forgot Password */}
-          <div className="flex items-center justify-between mb-6">
+          {/* Remember Me */}
+          <div className="flex items-center mb-6">
             <div className="flex items-center gap-2">
               <Checkbox id="remember" />
               <label
@@ -192,13 +190,6 @@ export function LoginScreen({
                 Remember me
               </label>
             </div>
-            <button
-              type="button"
-              onClick={onNavigateToForgotPassword}
-              className="text-sm text-sky-400 hover:text-sky-300 font-medium"
-            >
-              Forgot password?
-            </button>
           </div>
 
           {/* Error Message */}
