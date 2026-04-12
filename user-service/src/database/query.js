@@ -31,14 +31,6 @@ export async function getUserByEmail(email) {
   return result.rows[0];
 }
 
-export async function getUserById(id) {
-  const result = await query(
-    "SELECT id, email, username, access_role, created_at, profile_image_url FROM users WHERE id = $1",
-    [id],
-  );
-  return result.rows[0];
-}
-
 export async function getUserByUsername(username) {
   const result = await query(
     "SELECT id, email, username, hashed_password, access_role, created_at, profile_image_url FROM users WHERE username = $1",

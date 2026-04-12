@@ -1,7 +1,6 @@
 import {
   createUser as _createUser,
   getUserByEmail as _getUserByEmail,
-  getUserById as _getUserById,
   getUserByUsername as _getUserByUsername,
   updateUser as _updateUser,
   updateUserPassword as _updateUserPassword,
@@ -74,34 +73,6 @@ export async function getUserBySelf(req, res) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    return res.status(200).json(mapUserToView(user));
-  } catch (error) {
-    return res.status(500).json({ error: 'Failed to retrieve user' });
-  }
-}
-
-export async function getUserByEmail(req, res) {
-  try {
-    const { email } = req.params;
-    const user = await _getUserByEmail(email);
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    return res.status(200).json(mapUserToView(user));
-  } catch (error) {
-    return res.status(500).json({ error: 'Failed to retrieve user' });
-  }
-}
-
-export async function getUserById(req, res) {
-  try {
-    const { id } = req.params;
-    const user = await _getUserById(id);
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
     return res.status(200).json(mapUserToView(user));
   } catch (error) {
     return res.status(500).json({ error: 'Failed to retrieve user' });

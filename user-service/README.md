@@ -132,8 +132,8 @@ Base URL: `http://localhost:<USER_SERVICE_PORT>`
 | `PATCH` | `/users/me` | Authenticated | Update the authenticated user's profile fields. |
 | `PATCH` | `/users/me/password` | Authenticated | Change the authenticated user's password. |
 | `DELETE` | `/users/me` | Authenticated | Delete the authenticated user's account (not allowed for `root-admin`). |
-| `GET` | `/users/by-email/:email` | Authenticated | Retrieve a user profile by email. |
-| `GET` | `/users/all` | Root Admin | Retrieve all users (latest first). |
+| `GET` | `/users/by-username/:username` | Authenticated | Retrieve a user profile by username. |
+| `GET` | `/users/all` | Root Admin | Retrieve a paginated list of users. |
 | `PATCH` | `/users/:email/role` | Root Admin | Update a user's role to `user`, `admin`, or `root-admin`. |
 
 ### Auth Routes
@@ -220,15 +220,15 @@ Request:
 - Header: `Authorization: Bearer <jwt-token>`
 - `root-admin` users are blocked from self-deletion.
 
-`GET /users/by-email/:email` (Authenticated)
+`GET /users/by-username/:username` (Authenticated)
 
 - Header: `Authorization: Bearer <jwt-token>`
-- Returns user profile for the given email.
+- Returns user profile for the given username.
 
 `GET /users/all` (Root Admin only)
 
 - Header: `Authorization: Bearer <jwt-token>`
-- Returns all users sorted by creation time (latest first).
+- Returns a paginated list of users.
 
 `PATCH /users/:email/role` (Root Admin only)
 
