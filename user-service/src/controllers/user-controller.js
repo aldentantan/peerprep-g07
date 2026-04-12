@@ -111,7 +111,7 @@ export async function updateUser(req, res) {
     if (existingUsername && existingUsername.email !== email) {
       return res.status(409).json({ error: "Username already exists" });
     }
-
+    // AI generated (Edited by Xiang Yu)
     let imageUrl;
     if (profile_image) {
       // Do validation
@@ -273,6 +273,7 @@ export async function updateUserRoleByEmail(req, res) {
 
 export async function getAllUsers(req, res) {
   try {
+    // AI generated (Edited by Xiang Yu)
     const { query = "", page = "1", limit = "10" } = req.query;
 
     const parsedPage = parseInt(page);

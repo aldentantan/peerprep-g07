@@ -352,3 +352,172 @@ Added normalized duplicate checks and conflict responses for create and update r
 
 # Author Notes:
 Tried creating duplicates with different spacing, trailing slashes, and query strings to confirm the service still rejected them consistently
+
+
+# Date/Time:
+2026-02-27 20:38
+
+# Tool:
+GitHub Copilot
+
+# Prompt/Command:
+create a basic readme for other group members that may need to use the user-services
+
+# Output Summary:
+Added a README page with a basic developer guide
+
+# Action Taken:
+- [ ] Accepted as-is
+- [X] Modified
+- [ ] Rejected
+
+# Author Notes:
+Read through the README, corrected information that was wrong
+
+# Date/Time:
+2026-03-07 21:32
+
+# Tool:
+GitHub Copilot
+
+# Prompt/Command:
+is this how to ensure user-service start only after db is ready?
+
+# Output Summary:
+Fixed bug which cause improper startup
+
+# Action Taken:
+- [X] Accepted as-is
+- [ ] Modified
+- [ ] Rejected
+
+# Author Notes:
+Tested the starting of the services and read through the logs to ensure correct startup sequence
+
+
+# Date/Time:
+2026-03-16 21:32
+
+# Tool:
+GitHub Copilot
+
+# Prompt/Command:
+I want to upload this to aws elastic beanstalk, what do i need to change? planning to use docker for postgres since it is just a sch project, 1 ec2 to run all services
+
+# Output Summary:
+Provided snipets on different componenets to ensure that they can work on AWS
+
+# Action Taken:
+- [X] Accepted as-is
+- [ ] Modified
+- [ ] Rejected
+
+# Author Notes:
+Implemented the changes manually, tested manual deployment to ensure it works
+
+
+# Date/Time:
+2026-03-16 22:32
+
+# Tool:
+GitHub Copilot
+
+# Prompt/Command:
+update README for user service
+
+# Output Summary:
+Updated the README with new API routes
+
+# Action Taken:
+- [X] Accepted as-is
+- [ ] Modified
+- [ ] Rejected
+
+# Author Notes:
+Read through the README to enusre correct information was added
+
+
+# Date/Time:
+2026-03-29 17:38
+
+# Tool:
+ChatGPT
+
+# Prompt/Command:
+How to setup RDS on AWS
+
+# Output Summary:
+Guide on AWS RDS and sample code on how to use it + subsequent troubleshooting
+
+# Action Taken:
+- [ ] Accepted as-is
+- [X] Modified
+- [ ] Rejected
+
+# Author Notes:
+Followed the given guide and tested the code to ensure it works
+
+
+# Date/Time:
+2026-03-25 10:38
+
+# Tool:
+ChatGPT
+
+# Prompt/Command:
+how should i store user's interested topics in a postgres
+
+# Output Summary:
+Gave different methods to store different topics in postgres
+
+# Action Taken:
+- [ ] Accepted as-is
+- [X] Modified
+- [ ] Rejected
+
+# Author Notes:
+Selected the most suited method, whole topic selection was subsequently removed as a feature
+
+
+
+# Date/Time:
+2026-04-08 21:38
+
+# Tool:
+GitHub Copilot
+
+# Prompt/Command:
+if I want to add profile_photo_url, where do i do it
+
+# Output Summary:
+Identified different location in the frontend which needs to be changed in order to display profile photo
+
+# Action Taken:
+- [ ] Accepted as-is
+- [X] Modified
+- [ ] Rejected
+
+# Author Notes:
+Modified the code to change fetch to be from user-service instead, tested locally to ensure profile photo is displayed correctly
+
+
+# Date/Time:
+2026-04-08 21:38
+
+# Tool:
+GitHub Copilot
+
+# Prompt/Command:
+How can I add pagination with search here
+
+# Output Summary:
+Created snippets to use in both frontend and user service
+
+# Action Taken:
+- [ ] Accepted as-is
+- [X] Modified
+- [ ] Rejected
+
+# Author Notes:
+Added the code manually to different files, tested to ensure that it is working
+

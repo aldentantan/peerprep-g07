@@ -451,6 +451,7 @@ export function CollaborationWorkspace() {
   };
 
   useEffect(() => {
+    // AI-generated (edited by Xiang Yu)
     if (roomData) {
       const fetchParticipantProfiles = async () => {
         const profiles: Record<string, UserProfile> = {};

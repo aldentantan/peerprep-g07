@@ -71,6 +71,7 @@ export async function updateUserRoleByEmail(email, role) {
   return result.rows[0];
 }
 
+// AI generated (Edited by Xiang Yu)
 export async function getAllUsers(queryStr = "", page, limit) {
   const offset = (page - 1) * limit;
   const result = await query(

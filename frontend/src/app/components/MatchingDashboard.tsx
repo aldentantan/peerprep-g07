@@ -490,6 +490,7 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
   }, [matchingState, onMatchingStateChange]);
 
   useEffect(() => {
+    // AI generated (Edited by Xiang Yu)
     if (matchedPeerId) {
       getProfileByUsername(matchedPeerId).then(setPeerUserProfile);
     } else {
