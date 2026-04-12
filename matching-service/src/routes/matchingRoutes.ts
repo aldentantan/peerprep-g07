@@ -43,7 +43,7 @@ export async function handleWsConnection(ws: WebSocket, req: Request) {
 
 function handleMessage(userId: string, ws: WebSocket, raw: Buffer) {
   let msg: {
-    type: 'enqueue' | 'cancel' | 'accept_match';
+    type: 'enqueue' | 'cancel' | 'abandon' | 'accept_match';
     topic?: Topic;
     difficulty?: Difficulty;
     language?: Language;
@@ -66,6 +66,7 @@ function handleMessage(userId: string, ws: WebSocket, raw: Buffer) {
       return handleEnqueue(userId, msg.topic, msg.difficulty, msg.language, ws);
     },
     cancel: () => handleCancel(userId),
+    abandon: () => handleCancel(userId),
     accept_match: () => {
       if (!msg.pendingMatchId) {
         sendError(ws, 'Missing pendingMatchId for accept_match');

@@ -112,7 +112,13 @@ export async function handleEnqueue(
 
 export async function handleCancel(userId: string) {
   const rawState = await redis.hget(QUEUED_USERS_KEY, userId);
-  if (!rawState) return;
+  if (!rawState) {
+    const abandoned = await abandonPendingMatch(userId);
+    if (abandoned) {
+      removeWsConnection(userId);
+    }
+    return;
+  }
 
   const state = parseQueuedUserState(rawState);
   if (!state) {
@@ -305,6 +311,59 @@ async function removeUserPendingMappingsByPendingMatchId(
   if (usersToClear.length > 0) {
     await redis.hdel(USER_PENDING_MATCH_KEY, ...usersToClear);
   }
+}
+
+async function abandonPendingMatch(userId: string): Promise<boolean> {
+  const pendingMatchId = await redis.hget(USER_PENDING_MATCH_KEY, userId);
+  if (!pendingMatchId) {
+    return false;
+  }
+
+  const rawPendingState = await redis.hget(PENDING_MATCHES_KEY, pendingMatchId);
+  if (!rawPendingState) {
+    await redis.hdel(USER_PENDING_MATCH_KEY, userId);
+    return true;
+  }
+
+  const pendingState = parsePendingMatchState(rawPendingState);
+  if (!pendingState) {
+    await redis.hdel(PENDING_MATCHES_KEY, pendingMatchId);
+    await removeUserPendingMappingsByPendingMatchId(pendingMatchId);
+    console.error(
+      `Invalid pending match state for ${pendingMatchId}; removed stale state`,
+    );
+    return true;
+  }
+
+  if (pendingState.user1Id !== userId && pendingState.user2Id !== userId) {
+    await redis.hdel(USER_PENDING_MATCH_KEY, userId);
+    return true;
+  }
+
+  const finalizeResult = (await redis.eval(
+    LUA_FINALIZE_PENDING_MATCH,
+    2,
+    PENDING_MATCHES_KEY,
+    USER_PENDING_MATCH_KEY,
+    pendingMatchId,
+    rawPendingState,
+  )) as number;
+
+  if (finalizeResult !== 1) {
+    return false;
+  }
+
+  const peerUserId =
+    pendingState.user1Id === userId ? pendingState.user2Id : pendingState.user1Id;
+  const peerWs = wsConnectionStore.get(peerUserId);
+  pushToWs(peerWs, { type: "match_abandoned" });
+  removeWsConnection(peerUserId);
+
+  console.log(
+    `Pending match ${pendingMatchId} abandoned by ${userId}; notified ${peerUserId}`,
+  );
+
+  return true;
 }
 
 async function cleanupTimedOutPendingMatches(now: number) {
