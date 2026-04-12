@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS question_attempt_history (
     question_description TEXT NOT NULL,
     question_difficulty VARCHAR(10) NOT NULL CHECK (question_difficulty IN ('Easy', 'Medium', 'Hard')),
     question_topics TEXT[] NOT NULL DEFAULT '{}',
+    question_image_urls TEXT[] NOT NULL DEFAULT '{}',
     question_updated_at TIMESTAMPTZ,
     submitted_code TEXT NOT NULL,
     submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -17,6 +18,9 @@ CREATE TABLE IF NOT EXISTS question_attempt_history (
 
 ALTER TABLE question_attempt_history
     ADD COLUMN IF NOT EXISTS question_updated_at TIMESTAMPTZ;
+
+ALTER TABLE question_attempt_history
+    ADD COLUMN IF NOT EXISTS question_image_urls TEXT[] NOT NULL DEFAULT '{}';
 
 CREATE INDEX IF NOT EXISTS idx_question_attempt_history_user_submitted_at
     ON question_attempt_history (user_id, submitted_at DESC);

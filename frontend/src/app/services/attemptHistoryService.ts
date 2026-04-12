@@ -11,6 +11,7 @@ export interface AttemptHistoryEntry {
     description: string;
     difficulty: 'Easy' | 'Medium' | 'Hard';
     topics: string[];
+    imageUrls: string[];
     archived: boolean;
   };
   submittedCode: string;
@@ -23,6 +24,7 @@ export interface CreateAttemptHistoryEntryData {
   questionDescription: string;
   questionDifficulty: 'Easy' | 'Medium' | 'Hard';
   questionTopics: string[];
+  questionImageUrls?: string[];
   questionUpdatedAt?: string;
   submittedCode: string;
 }

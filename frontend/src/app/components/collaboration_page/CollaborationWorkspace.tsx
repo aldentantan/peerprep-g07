@@ -435,6 +435,7 @@ export function CollaborationWorkspace() {
         questionDescription: question.description,
         questionDifficulty: question.difficulty,
         questionTopics: question.topics,
+        questionImageUrls: question.imageUrls,
         questionUpdatedAt: question.updatedAt,
         submittedCode,
       });

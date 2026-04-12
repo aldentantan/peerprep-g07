@@ -2,7 +2,7 @@
 
 The Attempt History Service records user-specific question attempt snapshots for PeerPrep and returns a user's saved attempt history.
 
-It stores the submitted code together with a frozen snapshot of the question at the time of saving, so past attempts remain viewable even if the live question is later edited or deleted.
+It stores the submitted code together with a frozen snapshot of the question at the time of saving, including the title, description, difficulty, topics, image URLs, and optional `updatedAt`, so past attempts remain viewable even if the live question is later edited or deleted.
 
 ---
 
@@ -17,25 +17,24 @@ It stores the submitted code together with a frozen snapshot of the question at 
 ---
 
 ## Project Structure
-└──
-├──
+
 ```text
 attempt-history-service/
-├── Dockerfile
-├── package.json
-├── README.md
-├── src/
-   ├── index.js                    # Express setup, health check, DB bootstrap, schema init
-   ├── controllers/
-   |  └── attemptController.js    # Create attempt + get current user's attempts
-   ├── db/
-   |  └── bootstrap.js            # Creates the target DB if it does not exist yet
-   |  └── index.js                # pg Pool connection
-   |  └── schema.js               # Table and index creation
-   ├── middleware/
-   |  └── auth.js                 # Bearer token verification
-   ├── routes/
-      └── attemptRoutes.js        # /attempts route definitions
+|-- Dockerfile
+|-- package.json
+|-- README.md
+`-- src/
+    |-- index.js                    # Express setup, health check, DB bootstrap, schema init
+    |-- controllers/
+    |   `-- attemptController.js    # Create attempt + get current user's attempts
+    |-- db/
+    |   |-- bootstrap.js            # Creates the target DB if it does not exist yet
+    |   |-- index.js                # pg Pool connection
+    |   `-- schema.js               # Table and index creation
+    |-- middleware/
+    |   `-- auth.js                 # Bearer token verification
+    `-- routes/
+        `-- attemptRoutes.js        # /attempts route definitions
 ```
 
 ---
@@ -53,7 +52,7 @@ attempt-history-service/
 Run from the repository root:
 
 ```bash
-docker compose up --build 
+docker compose up --build
 ```
 
 The service is ready when you see:
@@ -133,7 +132,7 @@ From the repository root, the important `.env` variables are:
 4. The service stores:
    - the authenticated user
    - the question ID
-   - a frozen snapshot of the question title, description, difficulty, topics, and optional `updatedAt`
+   - a frozen snapshot of the question title, description, difficulty, topics, image URLs, and optional `updatedAt`
    - the submitted code
    - the submission timestamp
 5. The service returns the saved attempt with its computed `attemptNumber`.
@@ -144,6 +143,7 @@ From the repository root, the important `.env` variables are:
 2. The service loads the current user's attempts from Postgres.
 3. For archive detection, it optionally checks the current question record from the Question Service.
 4. If the live question was deleted or meaningfully changed, the attempt is returned with `question.archived: true`.
+5. Each attempt response includes the saved snapshot image URLs as `question.imageUrls`, allowing clients to render the same question visuals captured at save time.
 
 If the Question Service is temporarily unavailable, archive detection is skipped for that request instead of failing the whole history response.
 
@@ -177,6 +177,7 @@ CREATE TABLE question_attempt_history (
     question_description TEXT NOT NULL,
     question_difficulty VARCHAR(10) NOT NULL CHECK (question_difficulty IN ('Easy', 'Medium', 'Hard')),
     question_topics TEXT[] NOT NULL DEFAULT '{}',
+    question_image_urls TEXT[] NOT NULL DEFAULT '{}',
     question_updated_at TIMESTAMPTZ,
     submitted_code TEXT NOT NULL,
     submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -255,6 +256,9 @@ GET /attempts/me?questionId=12
         "description": "You are given an n x n 2D matrix...",
         "difficulty": "Medium",
         "topics": ["Arrays", "Algorithms"],
+        "imageUrls": [
+          "https://example-bucket.s3.amazonaws.com/questions/rotate-image-1.png"
+        ],
         "archived": false
       },
       "submittedCode": "function rotate(matrix) { ... }",
@@ -290,6 +294,7 @@ GET /attempts/me?questionId=12
 | `questionDescription` | string | Yes | Question description snapshot |
 | `questionDifficulty` | string | Yes | `Easy`, `Medium`, or `Hard` |
 | `questionTopics` | string[] | Yes | Topics snapshot |
+| `questionImageUrls` | string[] | No | Snapshot of the question's image URLs. Defaults to `[]` when omitted. |
 | `questionUpdatedAt` | string | No | Question `updatedAt` timestamp snapshot |
 | `submittedCode` | string | Yes | User's saved code; cannot be empty |
 
@@ -302,6 +307,9 @@ GET /attempts/me?questionId=12
   "questionDescription": "You are given an n x n 2D matrix...",
   "questionDifficulty": "Medium",
   "questionTopics": ["Arrays", "Algorithms"],
+  "questionImageUrls": [
+    "https://example-bucket.s3.amazonaws.com/questions/rotate-image-1.png"
+  ],
   "questionUpdatedAt": "2026-04-04T10:00:00.000Z",
   "submittedCode": "function rotate(matrix) { ... }"
 }
@@ -323,6 +331,9 @@ GET /attempts/me?questionId=12
       "description": "You are given an n x n 2D matrix...",
       "difficulty": "Medium",
       "topics": ["Arrays", "Algorithms"],
+      "imageUrls": [
+        "https://example-bucket.s3.amazonaws.com/questions/rotate-image-1.png"
+      ],
       "archived": false
     },
     "submittedCode": "function rotate(matrix) { ... }",
@@ -391,7 +402,7 @@ curl "http://localhost:3006/attempts/me?questionId=12" \
 curl -X POST http://localhost:3006/attempts \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d "{\"questionId\":12,\"questionTitle\":\"Rotate Image\",\"questionDescription\":\"You are given an n x n 2D matrix...\",\"questionDifficulty\":\"Medium\",\"questionTopics\":[\"Arrays\",\"Algorithms\"],\"questionUpdatedAt\":\"2026-04-04T10:00:00.000Z\",\"submittedCode\":\"function rotate(matrix) { ... }\"}"
+  -d "{\"questionId\":12,\"questionTitle\":\"Rotate Image\",\"questionDescription\":\"You are given an n x n 2D matrix...\",\"questionDifficulty\":\"Medium\",\"questionTopics\":[\"Arrays\",\"Algorithms\"],\"questionImageUrls\":[\"https://example-bucket.s3.amazonaws.com/questions/rotate-image-1.png\"],\"questionUpdatedAt\":\"2026-04-04T10:00:00.000Z\",\"submittedCode\":\"function rotate(matrix) { ... }\"}"
 ```
 
 ---
@@ -402,3 +413,4 @@ curl -X POST http://localhost:3006/attempts \
 - Attempt history is user-scoped; users only read their own attempts.
 - Archived status is computed at read time by comparing the saved snapshot with the current question from the Question Service.
 - Deleting a question does not delete past attempts; those attempts become archived and remain viewable.
+- The service stores image URLs, not image binaries. If the underlying asset is later removed from storage, clients may still receive the saved URL even if the image no longer loads.

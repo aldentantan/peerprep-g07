@@ -1,6 +1,6 @@
 import { Badge } from "@/app/components/ui/badge";
 import { ScrollArea } from "@/app/components/ui/scroll-area";
-import { ChevronRight, History, NotebookPen } from "lucide-react";
+import { ChevronRight, History, Image as ImageIcon, NotebookPen } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { AttemptHistoryEntry } from "@/app/services/attemptHistoryService";
 
@@ -172,6 +172,41 @@ export function AttemptHistoryPanel({
                         {selectedAttempt.question.description}
                       </p>
                     </div>
+
+                    {selectedAttempt.question.imageUrls.length > 0 && (
+                      <div className="border-2 border-gray-300 rounded-lg bg-white p-4 space-y-3">
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <ImageIcon className="h-4 w-4" />
+                          <div className="text-xs font-semibold uppercase tracking-wide">
+                            Question Images
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          {selectedAttempt.question.imageUrls.map((imageUrl, index) => (
+                            <div
+                              key={`${selectedAttempt.attemptId}-${imageUrl}-${index}`}
+                              className="rounded-lg border border-gray-300 bg-gray-50 p-2"
+                            >
+                              <img
+                                src={imageUrl}
+                                alt={`Saved question image ${index + 1}`}
+                                className="mx-auto h-auto max-h-48 w-auto max-w-full rounded-md object-contain"
+                                onError={(event) => {
+                                  event.currentTarget.style.display = "none";
+                                  const fallbackMessage = event.currentTarget.nextElementSibling as HTMLParagraphElement | null;
+                                  if (fallbackMessage) {
+                                    fallbackMessage.style.display = "block";
+                                  }
+                                }}
+                              />
+                              <p className="hidden text-center text-xs text-gray-500">
+                                Saved image unavailable.
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="border-2 border-gray-300 rounded-lg bg-white p-4 space-y-2">
                       <div className="flex items-center gap-2 text-gray-700">

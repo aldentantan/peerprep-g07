@@ -23,6 +23,25 @@ function normalizeTopics(topics) {
   return [];
 }
 
+function normalizeImageUrls(imageUrls) {
+  if (Array.isArray(imageUrls)) {
+    return imageUrls
+      .map((imageUrl) => (typeof imageUrl === 'string' ? imageUrl.trim() : ''))
+      .filter((imageUrl) => imageUrl !== '');
+  }
+
+  if (typeof imageUrls === 'string') {
+    try {
+      return normalizeImageUrls(JSON.parse(imageUrls));
+    } catch {
+      const trimmedImageUrl = imageUrls.trim();
+      return trimmedImageUrl === '' ? [] : [trimmedImageUrl];
+    }
+  }
+
+  return [];
+}
+
 function toIsoString(value) {
   if (!value) {
     return null;
@@ -115,6 +134,7 @@ function formatAttempt(row, archived) {
       description: row.question_description,
       difficulty: row.question_difficulty,
       topics: row.question_topics || [],
+      imageUrls: row.question_image_urls || [],
       archived,
     },
     submittedCode: row.submitted_code,
@@ -203,12 +223,14 @@ export async function createAttempt(req, res) {
     questionDescription,
     questionDifficulty,
     questionTopics,
+    questionImageUrls,
     questionUpdatedAt,
     submittedCode,
   } = req.body;
 
   const parsedQuestionId = Number.parseInt(`${questionId}`, 10);
   const normalizedTopics = normalizeTopics(questionTopics);
+  const normalizedImageUrls = normalizeImageUrls(questionImageUrls);
   const normalizedQuestionUpdatedAt =
     questionUpdatedAt === undefined || questionUpdatedAt === null || `${questionUpdatedAt}`.trim() === ''
       ? null
@@ -280,10 +302,11 @@ export async function createAttempt(req, res) {
          question_description,
          question_difficulty,
          question_topics,
+         question_image_urls,
          question_updated_at,
          submitted_code
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
         `${req.user.id}`,
@@ -293,6 +316,7 @@ export async function createAttempt(req, res) {
         questionDescription.trim(),
         questionDifficulty,
         normalizedTopics,
+        normalizedImageUrls,
         normalizedQuestionUpdatedAt ? normalizedQuestionUpdatedAt.toISOString() : null,
         submittedCode,
       ],
