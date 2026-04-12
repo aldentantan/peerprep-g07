@@ -138,13 +138,13 @@ const Chatbox = forwardRef<ChatboxHandle, ChatboxProps>(function Chatbox(
     };
 
     return (
-        <div className="border-4 border-gray-300 rounded-lg p-4 bg-white space-y-3 lg:col-span-1 lg:h-full flex flex-col min-h-[400px]">
+        <div className="border-4 border-gray-300 rounded-lg p-4 bg-white space-y-3 lg:col-span-1 h-[550px] overflow-hidden flex flex-col">
             <div className="flex items-center gap-2 text-gray-800 pb-2 border-b-2 border-gray-200">
                 <MessageSquare className="h-5 w-5" />
                 <h3 className="font-semibold">Chat</h3>
             </div>
 
-            <div className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
+            <div className="space-y-3 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1">
                 {messages.map((msg) => {
                     const isOwnMessage = msg.user === username;
 
@@ -162,7 +162,11 @@ const Chatbox = forwardRef<ChatboxHandle, ChatboxProps>(function Chatbox(
                                     isOwnMessage ? "border-blue-200 bg-blue-50" : "border-gray-300 bg-gray-50"
                                 }`}
                             >
-                                <p className={`text-sm ${isOwnMessage ? "text-right text-gray-800" : "text-left text-gray-700"}`}>
+                                <p
+                                    className={`text-sm whitespace-pre-wrap break-words ${
+                                        isOwnMessage ? "text-right text-gray-800" : "text-left text-gray-700"
+                                    }`}
+                                >
                                     {msg.message}
                                 </p>
                             </div>
