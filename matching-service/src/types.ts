@@ -40,6 +40,7 @@ export type PendingMatch = {
 export type InboundMessage =
  | { type: "enqueue"; topic: Topic; difficulty: Difficulty; language: Language; }
  | { type: "cancel"; }
+ | { type: "abandon"; }
  | { type: "accept_match"; pendingMatchId: string; };
 
  export type OutboundMessage =
@@ -47,6 +48,7 @@ export type InboundMessage =
  | { type: "matched"; match: Match }
  | { type: "match_pending"; pendingMatch: PendingMatch }
  | { type: "match_confirmed"; match: Match }
+ | { type: "match_abandoned" }
  | { type: "pending_accept_timeout" }
  | { type: "timeout" }
  | { type: "cancelled" }

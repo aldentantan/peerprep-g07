@@ -56,7 +56,7 @@ interface PendingMatchInfo {
 }
 
 interface MatchingDashboardProps {
-  onMatchingStateChange?: (isSearching: boolean) => void;
+  onMatchingStateChange?: (isMatchingActive: boolean) => void;
 }
   const MATCH_ACCEPT_TIMEOUT_SECONDS = 20;
 const TOPIC_MAP: Record<string, string> = {
@@ -486,7 +486,9 @@ export function MatchingDashboard({ onMatchingStateChange }: MatchingDashboardPr
 
   // Notify parent when matching state changes
   useEffect(() => {
-    onMatchingStateChange?.(matchingState === "searching");
+    onMatchingStateChange?.(
+      matchingState === "searching" || matchingState === "matched",
+    );
   }, [matchingState, onMatchingStateChange]);
 
   useEffect(() => {
