@@ -17,12 +17,13 @@ const DIFFICULTY_RANK: Record<Difficulty, number> = {
 
 const LUA_POLL_QUEUES = `
   local activeQueues = redis.call('SMEMBERS', KEYS[1])
+  local matchableQueues = {}
   for i, queueKey in ipairs(activeQueues) do
-    if redis.call('LLEN', queueKey) >= 2 then
-      return queueKey
+    if redis.call('LLEN', queueKey) >= 1 then
+      table.insert(matchableQueues, queueKey)
     end
   end
-  return nil
+  return matchableQueues
 `;
 
 const LUA_DEQUEUE_PAIR = `
@@ -232,30 +233,28 @@ async function tryRelaxedMatch(): Promise<boolean> {
 }
 
 async function pollAllQueues() {
-  const queueKey = (await redis.eval(
+  const queueKeys = (await redis.eval(
     LUA_POLL_QUEUES,
     1,
     ACTIVE_QUEUES_KEY,
-  )) as string | null;
+  )) as string[];
 
-  if (typeof queueKey === "string" && queueKey.length > 0) {
+  for (const queueKey of queueKeys) {
     const parsedQueue = parseQueueKey(queueKey);
-    if (parsedQueue) {
-      console.log(
-        `Found active queue with 2+ users: ${queueKey}. Attempting exact match...`,
-      );
-      const matched = await tryMatch(
-        parsedQueue.topic,
-        parsedQueue.difficulty,
-        parsedQueue.language,
-      );
-      if (matched) {
-        return;
-      }
+    if (!parsedQueue) {
+      continue;
     }
-  }
 
-  await tryRelaxedMatch();
+    console.log(
+      `Found active queue with 2+ users: ${queueKey}. Attempting exact match...`,
+    );
+    const matched = await tryMatch(
+      parsedQueue.topic,
+      parsedQueue.difficulty,
+      parsedQueue.language,
+    );
+  }
+    await tryRelaxedMatch();
 }
 
 async function tryMatch(
