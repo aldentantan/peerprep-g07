@@ -17,8 +17,6 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
-    ports:
-      - "${USER_SERVICE_PORT}:${USER_SERVICE_PORT}"
     restart: unless-stopped
 
   question-service:
@@ -45,9 +43,6 @@ services:
       - LEETCODE_RUN_ON_START=${LEETCODE_RUN_ON_START}
       - LEETCODE_BATCH_SIZE=${LEETCODE_BATCH_SIZE}
       - LEETCODE_RATE_LIMIT_DELAY_MS=${LEETCODE_RATE_LIMIT_DELAY_MS}
-
-    ports:
-      - "${QUESTION_SERVICE_PORT}:${QUESTION_SERVICE_PORT}"
     depends_on:
       leetcode-api:
         condition: service_started
@@ -66,8 +61,6 @@ services:
       - DB_BOOTSTRAP_DB=${ATTEMPT_HISTORY_BOOTSTRAP_DB}
       - JWT_SECRET=${JWT_SECRET}
       - QUESTION_SERVICE_URL=http://question-service:${QUESTION_SERVICE_PORT}
-    ports:
-      - "${ATTEMPT_HISTORY_SERVICE_PORT}:${ATTEMPT_HISTORY_SERVICE_PORT}"
     depends_on:
       - question-service
     restart: unless-stopped
@@ -86,8 +79,6 @@ services:
       REDIS_PORT: ${REDIS_PORT}
       COLLAB_REDIS_URL: redis://collab-redis:6379
       QUESTION_SERVICE_URL: http://question-service:${QUESTION_SERVICE_PORT}
-    ports:
-      - "${MATCHING_SERVICE_PORT}:${MATCHING_SERVICE_PORT}"
     depends_on:
       redis:
         condition: service_healthy
@@ -122,9 +113,6 @@ services:
       - PORT=${COLLAB_SERVICE_PORT}
       - REDIS_URL=redis://collab-redis:6379
       - QUESTION_SERVICE_URL=http://question-service:${QUESTION_SERVICE_PORT}
-    ports:
-      - "${COLLAB_SERVICE_PORT}:${COLLAB_SERVICE_PORT}"
-      - "${COLLAB_YJS_WS_PORT}:8081"
     depends_on:
       collab-redis:
         condition: service_healthy
@@ -204,8 +192,6 @@ services:
     environment:
       - PORT=${CODE_EXECUTION_PORT}
       - PISTON_URL=http://piston:2000
-    ports:
-      - "${CODE_EXECUTION_PORT}:${CODE_EXECUTION_PORT}"
     depends_on:
       piston-init:
         condition: service_completed_successfully
@@ -247,6 +233,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  user-postgres-data:
   piston-data:
-  question-postgres-data:
