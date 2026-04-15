@@ -733,3 +733,24 @@ Refactored the in-memory hash map of storing Websocket connections of active use
 
 # Author Notes:
 Tested the same user logged into 2 different tabs, attempting to queue into a match at the same time. The second tab was unable to queue due to the first tab already searching in queue.
+
+
+# Date/Time:
+2026-04-15 19:43
+
+# Tool:
+GitHub Copilot
+
+# Prompt/Command:
+Write a detailed and clear ReadMe about the whole repository
+
+# Output Summary:
+ReadMe of the whole repository
+
+# Action Taken:
+- [x] Accepted as-is
+- [ ] Modified
+- [ ] Rejected
+
+# Author Notes:
+Read through the entire page and verified if the things written are correct and the all required details are present
